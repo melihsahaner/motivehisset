@@ -250,8 +250,8 @@ function drawVideoCover(ctx, video, canvasW, canvasH) {
  */
 function drawQuoteText(ctx, text, canvasW, canvasH, elapsed) {
     const maxWidth = canvasW * 0.8;
-    const fontSize = 84;
-    const lineHeight = fontSize * 1.35;
+    const fontSize = 110;
+    const lineHeight = fontSize * 1.25;
 
     // Cinematic Animation (1.5s duration)
     const animDuration = 1.5;
@@ -289,24 +289,20 @@ function drawQuoteText(ctx, text, canvasW, canvasH, elapsed) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Draw soft background behind text for better readability
+    // Draw quote text logic
     const lines = wrapText(ctx, text, maxWidth);
     const totalHeight = lines.length * lineHeight;
     const startY = (canvasH - totalHeight) / 2 + lineHeight / 2;
 
-    const bgGlow = ctx.createRadialGradient(
-        canvasW / 2, canvasH / 2, 0,
-        canvasW / 2, canvasH / 2, totalHeight * 1.5
-    );
-    bgGlow.addColorStop(0, `rgba(0, 0, 0, ${0.4 * opacity})`);
-    bgGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-    ctx.fillStyle = bgGlow;
-    ctx.fillRect(0, 0, canvasW, canvasH); // Fill the glow (clamped by gradient)
-
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+
+    // Premium text shadow (consistent with reference)
+    ctx.shadowColor = `rgba(0, 0, 0, ${0.85 * opacity})`;
+    ctx.shadowBlur = 40;
+    ctx.shadowOffsetY = 6;
+    ctx.shadowOffsetX = 0;
 
     lines.forEach((line, index) => {
         ctx.fillText(line, canvasW / 2, startY + index * lineHeight);

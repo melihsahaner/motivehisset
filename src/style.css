@@ -310,7 +310,7 @@ main {
   align-items: center;
   justify-content: center;
   padding: 32px 24px;
-  background: rgba(0, 0, 0, 0.25);
+  background: transparent;
   pointer-events: none;
   z-index: 2;
 }
@@ -364,17 +364,17 @@ main {
 
 .quote-overlay p {
   font-family: var(--font-quote);
-  font-size: 1.8rem;
+  font-size: 2.6rem;
   font-weight: 500;
   font-style: italic;
   color: #fff;
   text-align: center;
-  line-height: 1.35;
-  max-width: 85%;
+  line-height: 1.2;
+  max-width: 90%;
   word-break: break-word;
-  padding: 20px;
-  background: radial-gradient(circle, rgba(0, 0, 0, 0.4) 0%, transparent 80%);
-  border-radius: 50%;
+  text-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.9),
+    0 0 40px rgba(0, 0, 0, 0.6);
   animation: textReveal 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
@@ -642,7 +642,7 @@ main {
   }
 
   .quote-overlay p {
-    font-size: 1rem;
+    font-size: 1.8rem;
   }
 }
 
@@ -652,6 +652,6 @@ main {
   }
 
   .quote-overlay p {
-    font-size: 1.3rem;
+    font-size: 2.8rem;
   }
 }
