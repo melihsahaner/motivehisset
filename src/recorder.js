@@ -1,12 +1,32 @@
 // Video recorder module - composites video + text overlay + white outro
-// Uses Canvas API + MediaRecorder for video export
+// Uses Canvas API + MediaRecorder for video export + FFmpeg.wasm for MP4 conversion
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 const OUTRO_DURATION = 3; // seconds of white screen at the end
-const MAX_VIDEO_DURATION = 7; // max video duration in seconds
+const MAX_VIDEO_DURATION = 10; // max video duration in seconds
 const CANVAS_WIDTH = 1080;
 const CANVAS_HEIGHT = 1920; // 9:16 aspect ratio
 const FPS = 30;
 const LOGO_PATH = '/Motive-Hisset-Logo.png';
+
+let ffmpeg = null;
+
+/**
+ * Initialize and load FFmpeg
+ */
+async function loadFFmpeg() {
+    if (ffmpeg) return ffmpeg;
+
+    ffmpeg = new FFmpeg();
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+    await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    });
+
+    return ffmpeg;
+}
 
 // Preload the logo image
 let logoImage = null;
@@ -27,7 +47,7 @@ loadLogo();
  * @param {HTMLVideoElement} videoEl - source video element
  * @param {string} quoteText - motivational quote to overlay
  * @param {Function} onProgress - progress callback (0-1)
- * @returns {Promise<Blob>} - recorded video blob
+ * @returns {Promise<Blob>} - recorded MP4 video blob
  */
 export async function recordVideo(videoEl, quoteText, onProgress) {
     const canvas = document.getElementById('record-canvas');
@@ -36,9 +56,10 @@ export async function recordVideo(videoEl, quoteText, onProgress) {
     canvas.width = CANVAS_WIDTH;
     canvas.height = CANVAS_HEIGHT;
 
-    // Ensure font is loaded before recording
+    // 1. Load FFmpeg and fonts
+    await loadFFmpeg();
     try {
-        await document.fonts.load('700 60px "TeX Gyre Schola"');
+        await document.fonts.load('italic 500 84px "Cormorant Garamond"');
     } catch (e) {
         console.warn('Font load failed, proceeding with fallback:', e);
     }
@@ -53,18 +74,9 @@ export async function recordVideo(videoEl, quoteText, onProgress) {
     return new Promise((resolve, reject) => {
         const stream = canvas.captureStream(FPS);
 
-        // Try VP9 first, fallback to VP8, then any
-        let mimeType = 'video/webm;codecs=vp9';
-        if (!MediaRecorder.isTypeSupported(mimeType)) {
-            mimeType = 'video/webm;codecs=vp8';
-        }
-        if (!MediaRecorder.isTypeSupported(mimeType)) {
-            mimeType = 'video/webm';
-        }
-
         const recorder = new MediaRecorder(stream, {
-            mimeType,
-            videoBitsPerSecond: 5000000
+            mimeType: 'video/webm;codecs=vp9',
+            videoBitsPerSecond: 8000000 // Higher bitrate for cleaner source
         });
 
         const chunks = [];
@@ -72,22 +84,43 @@ export async function recordVideo(videoEl, quoteText, onProgress) {
             if (e.data && e.data.size > 0) chunks.push(e.data);
         };
 
-        recorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'video/webm' });
-            console.log('Recording complete, blob size:', blob.size);
-            resolve(blob);
+        recorder.onstop = async () => {
+            try {
+                const webmBlob = new Blob(chunks, { type: 'video/webm' });
+
+                // 2. Transcode to MP4 using FFmpeg
+                onProgress(0.95, 'MP4\'e dönüştürülüyor...'); // Custom signal for processing
+
+                const inputName = 'input.webm';
+                const outputName = 'output.mp4';
+
+                await ffmpeg.writeFile(inputName, await fetchFile(webmBlob));
+
+                // Libx264 for MP4, ultrafast for speed in browser
+                // -crf 22 is a good balance of quality/size
+                await ffmpeg.exec(['-i', inputName, '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '22', '-pix_fmt', 'yuv420p', outputName]);
+
+                const data = await ffmpeg.readFile(outputName);
+                const mp4Blob = new Blob([data.buffer], { type: 'video/mp4' });
+
+                console.log('MP4 conversion complete, size:', mp4Blob.size);
+                resolve(mp4Blob);
+            } catch (err) {
+                console.error('MP4 conversion error:', err);
+                reject(err);
+            }
         };
 
         recorder.onerror = (e) => {
             reject(new Error('Kayıt hatası: ' + (e.error || e.message || 'unknown')));
         };
 
-        // Request data every 100ms to avoid losing data
+        // Request data every 100ms
         recorder.start(100);
 
         // Reset video
         videoEl.currentTime = 0;
-        videoEl.muted = true; // Keep muted to avoid issues
+        videoEl.muted = true;
 
         const playPromise = videoEl.play();
         if (playPromise) {
@@ -95,7 +128,7 @@ export async function recordVideo(videoEl, quoteText, onProgress) {
         }
 
         let recordingStartTime = performance.now();
-        let phase = 'video'; // 'video' or 'outro'
+        let phase = 'video';
         let outroStartTime = null;
 
         function drawFrame() {
@@ -256,10 +289,24 @@ function drawQuoteText(ctx, text, canvasW, canvasH, elapsed) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // No hard shadows, just a clean look
+    // Draw soft background behind text for better readability
     const lines = wrapText(ctx, text, maxWidth);
     const totalHeight = lines.length * lineHeight;
     const startY = (canvasH - totalHeight) / 2 + lineHeight / 2;
+
+    const bgGlow = ctx.createRadialGradient(
+        canvasW / 2, canvasH / 2, 0,
+        canvasW / 2, canvasH / 2, totalHeight * 1.5
+    );
+    bgGlow.addColorStop(0, `rgba(0, 0, 0, ${0.4 * opacity})`);
+    bgGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+    ctx.fillStyle = bgGlow;
+    ctx.fillRect(0, 0, canvasW, canvasH); // Fill the glow (clamped by gradient)
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
 
     lines.forEach((line, index) => {
         ctx.fillText(line, canvasW / 2, startY + index * lineHeight);

@@ -23,7 +23,7 @@ const progressFill = document.getElementById('progress-fill');
 const progressText = document.getElementById('progress-text');
 
 // Constants
-const MAX_VIDEO_DURATION = 7; // seconds
+const MAX_VIDEO_DURATION = 10; // seconds
 const OUTRO_DURATION = 3; // seconds
 
 // State
@@ -230,19 +230,22 @@ btnDownload.addEventListener('click', async () => {
   setButtonsDisabled(true);
 
   try {
-    const blob = await recordVideo(videoPlayer, currentQuote, (progress) => {
+    const blob = await recordVideo(videoPlayer, currentQuote, (progress, statusMsg) => {
       const pct = Math.round(progress * 100);
       progressFill.style.width = pct + '%';
-      if (pct < 90) {
+
+      if (statusMsg) {
+        progressText.textContent = statusMsg;
+      } else if (pct < 90) {
         progressText.textContent = `Kaydediliyor... %${pct}`;
       } else {
         progressText.textContent = 'Tamamlanıyor...';
       }
     });
 
-    // Download
+    // Download as MP4
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
-    downloadBlob(blob, `motivehisset-${timestamp}.webm`);
+    downloadBlob(blob, `motivehisset-${timestamp}.mp4`);
 
     progressText.textContent = 'İndirildi! ✅';
     showToast('Video başarıyla indirildi!', 'success');
