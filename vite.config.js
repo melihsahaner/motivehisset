@@ -2,9 +2,6 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
     server: {
-        headers: {
-            'Cross-Origin-Opener-Policy': 'same-origin',
-            'Cross-Origin-Embedder-Policy': 'require-corp',
-        },
+        // No security headers required for FFmpeg 0.11.x in single-threaded mode
     },
 });

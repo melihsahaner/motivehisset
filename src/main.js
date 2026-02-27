@@ -22,6 +22,14 @@ const downloadProgress = document.getElementById('download-progress');
 const progressFill = document.getElementById('progress-fill');
 const progressText = document.getElementById('progress-text');
 
+// DOM Elements (Customization)
+const inputQuote = document.getElementById('input-quote');
+const btnAligns = document.querySelectorAll('.btn-align');
+const rangeFontSize = document.getElementById('range-font-size');
+const valFontSize = document.getElementById('val-font-size');
+const rangeLineHeight = document.getElementById('range-line-height');
+const valLineHeight = document.getElementById('val-line-height');
+
 // Constants
 const MAX_VIDEO_DURATION = 10; // seconds
 const OUTRO_DURATION = 3; // seconds
@@ -33,6 +41,12 @@ let isLoading = false;
 let isRecording = false;
 let previewTimer = null;
 let outroTimer = null;
+
+let textSettings = {
+  align: 'center',
+  fontSize: '1.8rem',
+  lineHeight: '1.1'
+};
 
 // ========================================
 // API Key Management
@@ -141,11 +155,62 @@ async function loadContent() {
 
 function loadNewQuote() {
   currentQuote = getRandomQuote();
-  quoteText.textContent = currentQuote;
+  updateQuoteUI(currentQuote);
+  inputQuote.value = currentQuote;
+}
+
+function updateQuoteUI(text) {
+  quoteText.textContent = text;
+  quoteText.style.textAlign = textSettings.align;
+  quoteText.style.fontSize = textSettings.fontSize;
+  quoteText.style.lineHeight = textSettings.lineHeight;
+
+  // Handle justify-content for centering
+  if (textSettings.align === 'center') {
+    quoteOverlay.style.alignItems = 'center';
+    quoteOverlay.style.textAlign = 'center';
+  } else if (textSettings.align === 'left') {
+    quoteOverlay.style.alignItems = 'center'; // Center vertically
+    quoteOverlay.style.textAlign = 'left';
+  } else {
+    quoteOverlay.style.alignItems = 'center';
+    quoteOverlay.style.textAlign = 'right';
+  }
+
+  // Restart animation
   quoteText.style.animation = 'none';
   quoteText.offsetHeight;
   quoteText.style.animation = '';
 }
+
+// Text Settings Listeners
+inputQuote.addEventListener('input', (e) => {
+  currentQuote = e.target.value;
+  quoteText.textContent = currentQuote;
+});
+
+btnAligns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    btnAligns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    textSettings.align = btn.dataset.align;
+    updateQuoteUI(currentQuote);
+  });
+});
+
+rangeFontSize.addEventListener('input', (e) => {
+  const val = e.target.value + 'rem';
+  textSettings.fontSize = val;
+  valFontSize.textContent = val;
+  updateQuoteUI(currentQuote);
+});
+
+rangeLineHeight.addEventListener('input', (e) => {
+  const val = e.target.value;
+  textSettings.lineHeight = val;
+  valLineHeight.textContent = val;
+  updateQuoteUI(currentQuote);
+});
 
 async function loadNewVideo() {
   if (isLoading) return;
@@ -159,6 +224,12 @@ async function loadNewVideo() {
   try {
     const videoData = await fetchRandomVideo();
     currentVideoUrl = videoData.url;
+
+    // Fetch as blob to handle COEP/CORS more robustly
+    const response = await fetch(currentVideoUrl, { mode: 'cors' });
+    if (!response.ok) throw new Error('Video indirilemedi (Network error)');
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
 
     return new Promise((resolve, reject) => {
       const onReady = () => {
@@ -180,7 +251,7 @@ async function loadNewVideo() {
       };
 
       videoPlayer.crossOrigin = 'anonymous';
-      videoPlayer.src = currentVideoUrl;
+      videoPlayer.src = blobUrl;
       videoPlayer.load();
     });
   } catch (error) {
@@ -230,7 +301,10 @@ btnDownload.addEventListener('click', async () => {
   setButtonsDisabled(true);
 
   try {
-    const blob = await recordVideo(videoPlayer, currentQuote, (progress, statusMsg) => {
+    const blob = await recordVideo(videoPlayer, {
+      text: currentQuote,
+      ...textSettings
+    }, (progress, statusMsg) => {
       const pct = Math.round(progress * 100);
       progressFill.style.width = pct + '%';
 

@@ -7,13 +7,11 @@
   <title>MotiveHisset - Motivasyon Video Oluşturucu</title>
   <meta name="description"
     content="Ücretsiz telifsiz doğa videoları üzerine motivasyon sözleri ekleyerek dikey formatta videolar oluşturun." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
     href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;700&display=swap"
-    rel="stylesheet" />
-  <link rel="preconnect" href="https://fonts.cdnfonts.com" />
-  <link href="https://fonts.cdnfonts.com/css/tex-gyre-schola" rel="stylesheet" />
+    rel="stylesheet" crossorigin />
 </head>
 
 <body>
@@ -72,6 +70,39 @@
 
         <!-- Controls -->
         <div class="controls">
+          <!-- Text Customization Section -->
+          <div class="settings-panel">
+            <div class="settings-group">
+              <label>Metni Düzenle</label>
+              <textarea id="input-quote" placeholder="Sözünüzü buraya yazın..."></textarea>
+            </div>
+
+            <div class="settings-grid">
+              <div class="settings-group">
+                <label>Hizalama</label>
+                <div class="align-buttons">
+                  <button class="btn-align" data-align="left" title="Sola">左</button>
+                  <button class="btn-align active" data-align="center" title="Ortala">中</button>
+                  <button class="btn-align" data-align="right" title="Sağa">右</button>
+                </div>
+              </div>
+              <div class="settings-group">
+                <label>Metin Boyutu</label>
+                <div class="range-container">
+                  <input type="range" id="range-font-size" min="1.0" max="4.0" step="0.1" value="1.8">
+                  <span id="val-font-size">1.8rem</span>
+                </div>
+              </div>
+              <div class="settings-group">
+                <label>Satır Aralığı</label>
+                <div class="range-container">
+                  <input type="range" id="range-line-height" min="1.0" max="2.0" step="0.05" value="1.1">
+                  <span id="val-line-height">1.1</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="controls-row">
             <button id="btn-refresh" class="btn btn-glass" title="Yenile">
               <span class="btn-icon">🔄</span>

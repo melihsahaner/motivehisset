@@ -45,11 +45,11 @@ loadLogo();
 /**
  * Record a video with text overlay and white outro
  * @param {HTMLVideoElement} videoEl - source video element
- * @param {string} quoteText - motivational quote to overlay
+ * @param {string|object} quotePayload - motivational quote or settings object
  * @param {Function} onProgress - progress callback (0-1)
  * @returns {Promise<Blob>} - recorded MP4 video blob
  */
-export async function recordVideo(videoEl, quoteText, onProgress) {
+export async function recordVideo(videoEl, quotePayload, onProgress) {
     const canvas = document.getElementById('record-canvas');
     const ctx = canvas.getContext('2d');
 
@@ -59,9 +59,12 @@ export async function recordVideo(videoEl, quoteText, onProgress) {
     // 1. Load FFmpeg and fonts
     await loadFFmpeg();
     try {
-        await document.fonts.load('italic 500 84px "Cormorant Garamond"');
+        // Adding a small timeout for font loading to prevent hang
+        const fontPromise = document.fonts.load('italic 500 84px "Cormorant Garamond"');
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Font timeout')), 2000));
+        await Promise.race([fontPromise, timeoutPromise]);
     } catch (e) {
-        console.warn('Font load failed, proceeding with fallback:', e);
+        console.warn('Font load failed or timed out, proceeding with fallback:', e);
     }
 
     // Ensure logo is loaded
@@ -152,7 +155,7 @@ export async function recordVideo(videoEl, quoteText, onProgress) {
                 ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
                 // Draw quote text with intro animation
-                drawQuoteText(ctx, quoteText, CANVAS_WIDTH, CANVAS_HEIGHT, elapsed);
+                drawQuoteText(ctx, quotePayload, CANVAS_WIDTH, CANVAS_HEIGHT, elapsed);
 
                 // Draw branding overlays (Poppins font)
                 drawBranding(ctx, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -248,10 +251,20 @@ function drawVideoCover(ctx, video, canvasW, canvasH) {
 /**
  * Draw motivational quote text centered on canvas with cinematic intro animation
  */
-function drawQuoteText(ctx, text, canvasW, canvasH, elapsed) {
-    const maxWidth = canvasW * 0.8;
-    const fontSize = 110;
-    const lineHeight = fontSize * 1.25;
+function drawQuoteText(ctx, textPayload, canvasW, canvasH, elapsed) {
+    const {
+        text,
+        align = 'center',
+        fontSize: uiFontSize = '1.8rem',
+        lineHeight: uiLineHeight = '1.1'
+    } = typeof textPayload === 'string' ? { text: textPayload } : textPayload;
+
+    // Convert rem to px (base 16, scaled for 1080p canvas)
+    // The UI preview is ~320px-360px wide. Canvas is 1080px. Factor ~3.0-3.3
+    const basePX = parseFloat(uiFontSize) * 16;
+    const fontSize = basePX * 3.2; // Optimized for 1080x1920
+    const lineHeight = fontSize * parseFloat(uiLineHeight);
+    const maxWidth = canvasW * 0.85;
 
     // Cinematic Animation (1.5s duration)
     const animDuration = 1.5;
@@ -261,9 +274,7 @@ function drawQuoteText(ctx, text, canvasW, canvasH, elapsed) {
 
     if (elapsed < animDuration) {
         const progress = elapsed / animDuration;
-        // Cubic-bezier(0.22, 1, 0.36, 1) approximate
         const ease = 1 - Math.pow(1 - progress, 3);
-
         opacity = ease;
         blur = 15 * (1 - ease);
         scale = 1.05 - (0.05 * ease);
@@ -271,12 +282,10 @@ function drawQuoteText(ctx, text, canvasW, canvasH, elapsed) {
 
     ctx.save();
 
-    // Applying cinematic blur is expensive on canvas, but supported in modern browsers
     if (blur > 0 && typeof ctx.filter !== 'undefined') {
         ctx.filter = `blur(${blur}px)`;
     }
 
-    // Apply scale for animation
     if (scale !== 1) {
         ctx.translate(canvasW / 2, canvasH / 2);
         ctx.scale(scale, scale);
@@ -286,26 +295,24 @@ function drawQuoteText(ctx, text, canvasW, canvasH, elapsed) {
     ctx.globalAlpha = opacity;
     ctx.font = `italic 500 ${fontSize}px "Cormorant Garamond", serif`;
     ctx.fillStyle = '#FFFFFF';
-    ctx.textAlign = 'center';
+    ctx.textAlign = align;
     ctx.textBaseline = 'middle';
 
-    // Draw quote text logic
+    // Text lines logic
     const lines = wrapText(ctx, text, maxWidth);
     const totalHeight = lines.length * lineHeight;
     const startY = (canvasH - totalHeight) / 2 + lineHeight / 2;
 
-    ctx.fillStyle = '#FFFFFF';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    // Premium text shadow (consistent with reference)
-    ctx.shadowColor = `rgba(0, 0, 0, ${0.85 * opacity})`;
-    ctx.shadowBlur = 40;
-    ctx.shadowOffsetY = 6;
+    // Premium text shadow
+    ctx.shadowColor = `rgba(0, 0, 0, ${0.7 * opacity})`;
+    ctx.shadowBlur = 30;
+    ctx.shadowOffsetY = 4;
     ctx.shadowOffsetX = 0;
 
+    const xPos = align === 'center' ? canvasW / 2 : (align === 'left' ? canvasW * 0.075 : canvasW * 0.925);
+
     lines.forEach((line, index) => {
-        ctx.fillText(line, canvasW / 2, startY + index * lineHeight);
+        ctx.fillText(line, xPos, startY + index * lineHeight);
     });
 
     ctx.restore();
