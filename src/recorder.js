@@ -108,8 +108,14 @@ export async function recordVideo(videoEl, quoteText, onProgress) {
                 // Draw video frame to canvas
                 drawVideoCover(ctx, videoEl, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-                // Draw semi-transparent overlay for text readability
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                // Draw cinematic vignette for text readability
+                const vignette = ctx.createRadialGradient(
+                    CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.3,
+                    CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 0.6
+                );
+                vignette.addColorStop(0, 'transparent');
+                vignette.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
+                ctx.fillStyle = vignette;
                 ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
                 // Draw quote text with intro animation
@@ -207,49 +213,50 @@ function drawVideoCover(ctx, video, canvasW, canvasH) {
 }
 
 /**
- * Draw motivational quote text centered on canvas with intro animation
+ * Draw motivational quote text centered on canvas with cinematic intro animation
  */
 function drawQuoteText(ctx, text, canvasW, canvasH, elapsed) {
     const maxWidth = canvasW * 0.8;
-    const fontSize = 64;
-    const lineHeight = fontSize * 1.5;
+    const fontSize = 84;
+    const lineHeight = fontSize * 1.35;
 
-    // Animation settings (0.8s duration)
-    const animDuration = 0.8;
+    // Cinematic Animation (1.5s duration)
+    const animDuration = 1.5;
     let opacity = 1;
-    let translateY = 0;
+    let blur = 0;
     let scale = 1;
 
     if (elapsed < animDuration) {
         const progress = elapsed / animDuration;
-        // Cubic-bezier like easing (ease-out-cubic: 1 - pow(1 - x, 3))
+        // Cubic-bezier(0.22, 1, 0.36, 1) approximate
         const ease = 1 - Math.pow(1 - progress, 3);
 
         opacity = ease;
-        translateY = 20 * (1 - ease);
-        scale = 0.95 + (0.05 * ease);
+        blur = 15 * (1 - ease);
+        scale = 1.05 - (0.05 * ease);
     }
 
     ctx.save();
 
-    // Apply scale and translation for animation
-    if (scale !== 1 || translateY !== 0) {
+    // Applying cinematic blur is expensive on canvas, but supported in modern browsers
+    if (blur > 0 && typeof ctx.filter !== 'undefined') {
+        ctx.filter = `blur(${blur}px)`;
+    }
+
+    // Apply scale for animation
+    if (scale !== 1) {
         ctx.translate(canvasW / 2, canvasH / 2);
         ctx.scale(scale, scale);
-        ctx.translate(-canvasW / 2, -canvasH / 2 + translateY);
+        ctx.translate(-canvasW / 2, -canvasH / 2);
     }
 
     ctx.globalAlpha = opacity;
-    ctx.font = `700 ${fontSize}px "TeX Gyre Schola", "Georgia", serif`;
+    ctx.font = `italic 500 ${fontSize}px "Cormorant Garamond", serif`;
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    ctx.shadowColor = `rgba(0, 0, 0, ${0.8 * opacity})`;
-    ctx.shadowBlur = 12;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 2;
-
+    // No hard shadows, just a clean look
     const lines = wrapText(ctx, text, maxWidth);
     const totalHeight = lines.length * lineHeight;
     const startY = (canvasH - totalHeight) / 2 + lineHeight / 2;
