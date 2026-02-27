@@ -112,8 +112,8 @@ export async function recordVideo(videoEl, quoteText, onProgress) {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
                 ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-                // Draw quote text
-                drawQuoteText(ctx, quoteText, CANVAS_WIDTH, CANVAS_HEIGHT);
+                // Draw quote text with intro animation
+                drawQuoteText(ctx, quoteText, CANVAS_WIDTH, CANVAS_HEIGHT, elapsed);
 
                 // Draw branding overlays (Poppins font)
                 drawBranding(ctx, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -207,19 +207,45 @@ function drawVideoCover(ctx, video, canvasW, canvasH) {
 }
 
 /**
- * Draw motivational quote text centered on canvas
+ * Draw motivational quote text centered on canvas with intro animation
  */
-function drawQuoteText(ctx, text, canvasW, canvasH) {
+function drawQuoteText(ctx, text, canvasW, canvasH, elapsed) {
     const maxWidth = canvasW * 0.8;
     const fontSize = 64;
     const lineHeight = fontSize * 1.5;
 
+    // Animation settings (0.8s duration)
+    const animDuration = 0.8;
+    let opacity = 1;
+    let translateY = 0;
+    let scale = 1;
+
+    if (elapsed < animDuration) {
+        const progress = elapsed / animDuration;
+        // Cubic-bezier like easing (ease-out-cubic: 1 - pow(1 - x, 3))
+        const ease = 1 - Math.pow(1 - progress, 3);
+
+        opacity = ease;
+        translateY = 20 * (1 - ease);
+        scale = 0.95 + (0.05 * ease);
+    }
+
+    ctx.save();
+
+    // Apply scale and translation for animation
+    if (scale !== 1 || translateY !== 0) {
+        ctx.translate(canvasW / 2, canvasH / 2);
+        ctx.scale(scale, scale);
+        ctx.translate(-canvasW / 2, -canvasH / 2 + translateY);
+    }
+
+    ctx.globalAlpha = opacity;
     ctx.font = `700 ${fontSize}px "TeX Gyre Schola", "Georgia", serif`;
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowColor = `rgba(0, 0, 0, ${0.8 * opacity})`;
     ctx.shadowBlur = 12;
     ctx.shadowOffsetX = 2;
     ctx.shadowOffsetY = 2;
@@ -232,9 +258,7 @@ function drawQuoteText(ctx, text, canvasW, canvasH) {
         ctx.fillText(line, canvasW / 2, startY + index * lineHeight);
     });
 
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetY = 0;
+    ctx.restore();
 }
 
 /**
