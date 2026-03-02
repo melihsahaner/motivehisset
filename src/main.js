@@ -21,6 +21,7 @@ const btnDownload = document.getElementById('btn-download');
 const downloadProgress = document.getElementById('download-progress');
 const progressFill = document.getElementById('progress-fill');
 const progressText = document.getElementById('progress-text');
+const bgVideo = document.getElementById('bg-video');
 
 // DOM Elements (Customization)
 const inputQuote = document.getElementById('input-quote');
@@ -105,6 +106,10 @@ function startPreviewLoop() {
   videoPlayer.loop = false;
   videoPlayer.muted = true;
   videoPlayer.play().catch(() => { });
+  if (bgVideo) {
+    bgVideo.currentTime = 0;
+    bgVideo.play().catch(() => { });
+  }
 
   // Monitor video time to cut at MAX_VIDEO_DURATION
   function checkTime() {
@@ -112,6 +117,7 @@ function startPreviewLoop() {
 
     if (videoPlayer.currentTime >= MAX_VIDEO_DURATION || videoPlayer.ended) {
       videoPlayer.pause();
+      if (bgVideo) bgVideo.pause();
       showOutro();
       return;
     }
@@ -142,6 +148,22 @@ function stopPreviewLoop() {
   if (outroTimer) {
     clearTimeout(outroTimer);
     outroTimer = null;
+  }
+  if (bgVideo) {
+    bgVideo.pause();
+  }
+}
+
+
+// Sync Background Video
+function syncBgVideo() {
+  if (bgVideo && videoPlayer) {
+    bgVideo.currentTime = videoPlayer.currentTime;
+    if (videoPlayer.paused) {
+      bgVideo.pause();
+    } else {
+      bgVideo.play().catch(() => { });
+    }
   }
 }
 
@@ -253,6 +275,11 @@ async function loadNewVideo() {
       videoPlayer.crossOrigin = 'anonymous';
       videoPlayer.src = blobUrl;
       videoPlayer.load();
+
+      if (bgVideo) {
+        bgVideo.src = blobUrl;
+        bgVideo.load();
+      }
     });
   } catch (error) {
     isLoading = false;

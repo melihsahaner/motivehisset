@@ -50,31 +50,31 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Animated background gradient */
-body::before {
-  content: '';
+/* Background Video Container - Optimized for Full Screen */
+.bg-video-container {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
-  background:
-    radial-gradient(ellipse at 20% 20%, rgba(102, 126, 234, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 80%, rgba(118, 75, 162, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba(102, 126, 234, 0.04) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-  animation: bgPulse 8s ease-in-out infinite alternate;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  overflow: hidden;
+  opacity: 0.4;
+  filter: blur(20px) brightness(0.5);
+  background: var(--bg-dark);
+  transition: opacity 1s ease;
 }
 
-@keyframes bgPulse {
-  0% {
-    opacity: 0.6;
-  }
-
-  100% {
-    opacity: 1;
-  }
+.bg-video-container video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  width: 115vw;
+  height: 115vh;
+  transform: translate(-50%, -50%);
+  object-fit: cover;
 }
 
 /* App Container */
@@ -82,11 +82,15 @@ body::before {
   position: relative;
   z-index: 1;
   min-height: 100vh;
+  transition: var(--transition);
+  display: flex;
+  flex-direction: column;
 }
 
 .hidden {
   display: none !important;
 }
+
 
 /* ========================================
    Modal Overlay
@@ -196,37 +200,39 @@ body::before {
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
 }
 
-.modal-card input::placeholder {
-  color: var(--text-muted);
-}
-
 /* ========================================
    Header
    ======================================== */
 header {
-  text-align: center;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 40px 20px 10px;
+  transition: var(--transition);
+}
+
+.header-content {
+  text-align: left;
+  transition: var(--transition);
 }
 
 .logo {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 12px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
+  transition: var(--transition);
 }
 
-.logo-icon {
-  font-size: 32px;
-}
 
 .logo h1 {
   font-size: 1.8rem;
   font-weight: 700;
-  background: var(--accent-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #fff;
   letter-spacing: -0.5px;
 }
 
@@ -236,24 +242,31 @@ header {
   font-weight: 400;
   letter-spacing: 1px;
   text-transform: uppercase;
+  transition: var(--transition);
 }
+
 
 /* ========================================
    Main Content
    ======================================== */
 main {
+  width: 100%;
   max-width: 520px;
   margin: 0 auto;
   padding: 20px 20px 60px;
+  display: flex;
+  flex-direction: column;
+  transition: var(--transition);
 }
 
 /* ========================================
-   Video Preview
+   Video Preview (Phone Frame)
    ======================================== */
 .preview-container {
   display: flex;
   justify-content: center;
   margin-bottom: 28px;
+  transition: var(--transition);
 }
 
 .phone-frame {
@@ -262,10 +275,7 @@ main {
   border-radius: var(--radius-xl);
   overflow: hidden;
   position: relative;
-  box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.08),
-    0 20px 60px rgba(0, 0, 0, 0.5),
-    var(--shadow-glow);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08), 0 20px 60px rgba(0, 0, 0, 0.5), var(--shadow-glow);
   background: #111;
 }
 
@@ -277,7 +287,6 @@ main {
   overflow: hidden;
 }
 
-/* Cinematic Vignette Overlay */
 .video-wrapper::after {
   content: '';
   position: absolute;
@@ -315,53 +324,6 @@ main {
   z-index: 2;
 }
 
-/* Branding Overlays - Reels safe zone */
-.brand-top {
-  position: absolute;
-  top: 6%;
-  left: 0;
-  right: 0;
-  text-align: center;
-  font-family: var(--font-brand);
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 3px;
-  pointer-events: none;
-  animation: brandFadeIn 1s ease-out forwards;
-}
-
-.brand-bottom {
-  position: absolute;
-  bottom: 12%;
-  left: 6%;
-  right: 6%;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  pointer-events: none;
-  z-index: 2;
-  animation: brandFadeIn 1.2s ease-out forwards;
-}
-
-@keyframes brandFadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-.brand-left,
-.brand-right {
-  font-family: var(--font-brand);
-  font-size: 0.55rem;
-  font-weight: 500;
-  color: #fff;
-}
-
 .quote-overlay p {
   font-family: var(--font-quote);
   font-size: 1.8rem;
@@ -373,9 +335,7 @@ main {
   max-width: 80%;
   word-break: break-word;
   letter-spacing: -0.01em;
-  text-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.6),
-    0 0 30px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 0, 0, 0.3);
   animation: textReveal 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
@@ -393,7 +353,42 @@ main {
   }
 }
 
-/* Video Loading State */
+/* Branding */
+.brand-top {
+  position: absolute;
+  top: 6%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: var(--font-brand);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 3px;
+  pointer-events: none;
+}
+
+.brand-bottom {
+  position: absolute;
+  bottom: 12%;
+  left: 6%;
+  right: 6%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.brand-left,
+.brand-right {
+  font-family: var(--font-brand);
+  font-size: 0.55rem;
+  font-weight: 500;
+  color: #fff;
+}
+
+/* Video Loading */
 .video-loading {
   position: absolute;
   top: 0;
@@ -408,18 +403,6 @@ main {
   background: linear-gradient(180deg, #1a1a2e 0%, #0d0d1a 100%);
   z-index: 3;
   transition: opacity 0.3s ease;
-}
-
-.video-loading.hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.video-loading span {
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  font-weight: 500;
-  letter-spacing: 0.5px;
 }
 
 .spinner {
@@ -437,7 +420,7 @@ main {
   }
 }
 
-/* Outro Overlay (white screen with logo) */
+/* Outro */
 .outro-overlay {
   position: absolute;
   top: 0;
@@ -449,7 +432,6 @@ main {
   justify-content: center;
   background: #FFFFFF;
   z-index: 4;
-  animation: fadeIn 0.3s ease;
 }
 
 .outro-logo {
@@ -473,9 +455,6 @@ main {
   gap: 10px;
 }
 
-/* ========================================
-   Buttons
-   ======================================== */
 .btn {
   display: flex;
   align-items: center;
@@ -500,99 +479,41 @@ main {
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none;
 }
 
-.btn-icon {
-  font-size: 1.1rem;
-}
-
-/* Glass Button */
 .btn-glass {
   background: var(--bg-glass);
   color: var(--text-primary);
   border: 1px solid var(--border-glass);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .btn-glass:hover:not(:disabled) {
   background: var(--bg-glass-hover);
   border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
-/* Primary Button */
 .btn-primary {
   background: var(--accent-gradient);
   color: #fff;
-  border: none;
   box-shadow: 0 4px 20px rgba(102, 126, 234, 0.25);
-}
-
-.btn-primary:hover:not(:disabled) {
-  box-shadow: 0 6px 30px rgba(102, 126, 234, 0.35);
-  transform: translateY(-1px);
-}
-
-.btn-primary:active:not(:disabled) {
-  transform: translateY(0) scale(0.98);
 }
 
 .btn-full {
   width: 100%;
 }
 
-/* ========================================
-   Download Progress
-   ======================================== */
-.download-progress {
-  margin-top: 16px;
-  padding: 20px 24px;
-  background: var(--bg-glass);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-md);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  animation: fadeIn 0.3s ease;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 10px;
-}
-
-.progress-fill {
-  height: 100%;
-  width: 0%;
-  background: var(--accent-gradient);
-  border-radius: 3px;
-  transition: width 0.2s ease;
-}
-
-.download-progress p {
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  text-align: center;
-  font-weight: 500;
-}
-
-/* ========================================
-   Settings Panel (Text Customization)
-   ======================================== */
+/* Settings Panel */
 .settings-panel {
   background: var(--bg-glass);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-md);
   padding: 16px;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  backdrop-filter: blur(10px);
 }
 
 .settings-group {
@@ -624,11 +545,6 @@ main {
   transition: var(--transition);
 }
 
-.settings-panel textarea:focus {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--accent-color);
-}
-
 .settings-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -642,7 +558,6 @@ main {
   background: rgba(0, 0, 0, 0.2);
   padding: 4px;
   border-radius: var(--radius-sm);
-  width: fit-content;
 }
 
 .btn-align {
@@ -654,21 +569,14 @@ main {
   font-weight: 700;
   border-radius: 4px;
   cursor: pointer;
-  transition: var(--transition);
-}
-
-.btn-align:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
 }
 
 .btn-align.active {
   background: var(--accent-gradient);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-/* Range Input Styling */
+/* Range Input */
 .range-container {
   display: flex;
   align-items: center;
@@ -679,37 +587,47 @@ main {
   flex: 1;
   height: 4px;
   -webkit-appearance: none;
+  appearance: none;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 2px;
-  outline: none;
 }
 
 .range-container input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
+  appearance: none;
   width: 14px;
   height: 14px;
   background: var(--text-primary);
   border: 2px solid var(--accent-color);
   border-radius: 50%;
-  cursor: pointer;
-  transition: var(--transition);
 }
 
-.range-container input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
-  background: var(--accent-color);
+/* Download Progress */
+.download-progress {
+  margin-top: 16px;
+  padding: 20px 24px;
+  background: var(--bg-glass);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(10px);
 }
 
-.range-container span {
-  font-size: 0.75rem;
-  font-family: monospace;
-  color: var(--text-secondary);
-  min-width: 40px;
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 10px;
 }
 
-/* ========================================
-   Error Toast
-   ======================================== */
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent-gradient);
+  transition: width 0.2s ease;
+}
+
+/* Toast */
 .toast {
   position: fixed;
   bottom: 24px;
@@ -719,35 +637,31 @@ main {
   background: rgba(239, 68, 68, 0.95);
   color: #fff;
   border-radius: var(--radius-md);
-  font-size: 0.85rem;
-  font-weight: 500;
   z-index: 200;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  max-width: 90%;
-  text-align: center;
+  transition: transform 0.4s ease;
 }
 
 .toast.show {
   transform: translateX(-50%) translateY(0);
 }
 
-.toast.success {
-  background: rgba(34, 197, 94, 0.95);
-}
-
 /* ========================================
-   Responsive
+   Responsive Media Queries
    ======================================== */
-@media (max-width: 400px) {
+@media (max-width: 450px) {
   header {
     padding: 24px 16px 8px;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
   }
 
-  .logo h1 {
-    font-size: 1.4rem;
+  .header-content {
+    text-align: center;
+  }
+
+  .logo {
+    justify-content: center;
   }
 
   main {
@@ -763,22 +677,54 @@ main {
     gap: 8px;
   }
 
-  .btn {
-    padding: 12px 16px;
-    font-size: 0.8rem;
-  }
-
   .quote-overlay p {
     font-size: 1.4rem;
   }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 900px) {
+  main {
+    max-width: 1100px;
+    flex-direction: row;
+    gap: 60px;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 40px;
+  }
+
+  .preview-container {
+    margin-bottom: 0;
+    flex-shrink: 0;
+    position: sticky;
+    top: 40px;
+  }
+
   .phone-frame {
-    width: 360px;
+    width: 380px;
+  }
+
+  .controls {
+    flex: 1;
+    max-width: 500px;
+    gap: 20px;
+  }
+
+  .settings-panel {
+    padding: 24px;
+    margin-bottom: 12px;
   }
 
   .quote-overlay p {
     font-size: 2.2rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .phone-frame {
+    width: 440px;
+  }
+
+  main {
+    gap: 100px;
   }
 }
