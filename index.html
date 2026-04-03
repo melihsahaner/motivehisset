@@ -51,20 +51,27 @@
         <div class="preview-container">
           <div class="phone-frame">
             <div id="video-wrapper" class="video-wrapper">
-              <video id="video-player" muted playsinline></video>
-              <!-- Branding Overlays -->
-              <div class="brand-top">MOTİVE HİSSET</div>
-              <div class="brand-bottom">
-                <span class="brand-left">@motivehisset</span>
-                <span class="brand-right">motivehisset.com</span>
+              <div class="video-content">
+                <video id="video-player" muted playsinline></video>
+                <!-- Branding Overlays -->
+                <div class="brand-top">MOTİVE HİSSET</div>
+                <div class="brand-bottom">
+                  <span class="brand-left">@motivehisset</span>
+                  <span class="brand-right">motivehisset.com</span>
+                </div>
+                <div id="quote-overlay" class="quote-overlay">
+                  <p id="quote-text"></p>
+                </div>
+                <!-- Outro Overlay -->
+                <div id="outro-overlay" class="outro-overlay hidden">
+                  <img src="/Motive-Hisset-Logo.png" alt="MotiveHisset" class="outro-logo" />
+                </div>
               </div>
-              <div id="quote-overlay" class="quote-overlay">
-                <p id="quote-text"></p>
-              </div>
-              <!-- Outro Overlay -->
-              <div id="outro-overlay" class="outro-overlay hidden">
-                <img src="/Motive-Hisset-Logo.png" alt="MotiveHisset" class="outro-logo" />
-              </div>
+              <!-- Fullscreen Button -->
+              <button id="btn-fullscreen" class="btn-fullscreen" title="Tam Ekran">
+                <span class="fs-icon">⛶</span>
+              </button>
+
               <!-- Loading State -->
               <div id="video-loading" class="video-loading">
                 <div class="spinner"></div>
@@ -79,7 +86,12 @@
           <!-- Text Customization Section -->
           <div class="settings-panel">
             <div class="settings-group">
-              <label>Metni Düzenle</label>
+              <div class="label-with-action">
+                <label>Metni Düzenle</label>
+                <button id="btn-copy-text" class="btn-copy-small" title="Kopyala">
+                  <span class="copy-icon">📋</span>
+                </button>
+              </div>
               <textarea id="input-quote" placeholder="Sözünüzü buraya yazın..."></textarea>
             </div>
 

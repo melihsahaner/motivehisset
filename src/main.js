@@ -22,6 +22,8 @@ const downloadProgress = document.getElementById('download-progress');
 const progressFill = document.getElementById('progress-fill');
 const progressText = document.getElementById('progress-text');
 const bgVideo = document.getElementById('bg-video');
+const videoWrapper = document.getElementById('video-wrapper');
+const btnFullscreen = document.getElementById('btn-fullscreen');
 
 // DOM Elements (Customization)
 const inputQuote = document.getElementById('input-quote');
@@ -34,6 +36,8 @@ const valLineHeight = document.getElementById('val-line-height');
 // Constants
 const MAX_VIDEO_DURATION = 10; // seconds
 const OUTRO_DURATION = 3; // seconds
+
+const btnCopyText = document.getElementById('btn-copy-text');
 
 // State
 let currentQuote = '';
@@ -370,6 +374,30 @@ btnDownload.addEventListener('click', async () => {
 });
 
 // ========================================
+// Fullscreen Management
+// ========================================
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    videoWrapper.requestFullscreen().catch(err => {
+      showToast(`Tam ekran hatası: ${err.message}`, 'error');
+    });
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+btnFullscreen.addEventListener('click', toggleFullscreen);
+
+// ESC key to exit if handled by browser is enough, but adding listener for custom UI if needed
+document.addEventListener('fullscreenchange', () => {
+  if (document.fullscreenElement) {
+    btnFullscreen.querySelector('.fs-icon').textContent = '✕';
+  } else {
+    btnFullscreen.querySelector('.fs-icon').textContent = '⛶';
+  }
+});
+
+// ========================================
 // Toast Notifications
 // ========================================
 function showToast(message, type = 'error') {
@@ -391,6 +419,30 @@ function showToast(message, type = 'error') {
     setTimeout(() => toast.remove(), 400);
   }, 4000);
 }
+
+// ========================================
+// Copy Text Functionality
+// ========================================
+btnCopyText.addEventListener('click', async () => {
+  const text = inputQuote.value;
+  try {
+    await navigator.clipboard.writeText(text);
+
+    // Success feedback
+    const originalIcon = btnCopyText.querySelector('.copy-icon').textContent;
+    btnCopyText.querySelector('.copy-icon').textContent = '✅';
+    btnCopyText.classList.add('success');
+
+    setTimeout(() => {
+      btnCopyText.querySelector('.copy-icon').textContent = '📋';
+      btnCopyText.classList.remove('success');
+    }, 2000);
+
+    showToast('Metin kopyalandı! ✅', 'success');
+  } catch (err) {
+    showToast('Kopyalama başarısız oldu.', 'error');
+  }
+});
 
 // ========================================
 // Initialize

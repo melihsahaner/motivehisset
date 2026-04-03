@@ -15,15 +15,23 @@ let ffmpeg = null;
 /**
  * Initialize and load FFmpeg
  */
-async function loadFFmpeg() {
+async function loadFFmpeg(onStatusUpdate) {
     if (ffmpeg) return ffmpeg;
+
+    if (onStatusUpdate) onStatusUpdate(0, 'FFmpeg bileşenleri yükleniyor...');
 
     ffmpeg = new FFmpeg();
     const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-    await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-    });
+
+    try {
+        await ffmpeg.load({
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+    } catch (err) {
+        console.error('FFmpeg load failed:', err);
+        throw new Error('Video işleme modülü yüklenemedi. Lütfen internet bağlantınızı kontrol edin.');
+    }
 
     return ffmpeg;
 }
@@ -57,7 +65,9 @@ export async function recordVideo(videoEl, quotePayload, onProgress) {
     canvas.height = CANVAS_HEIGHT;
 
     // 1. Load FFmpeg and fonts
-    await loadFFmpeg();
+    await loadFFmpeg(onProgress);
+
+    onProgress(0.05, 'Yazı tipleri yükleniyor...');
     try {
         // Adding a small timeout for font loading to prevent hang
         const fontPromise = document.fonts.load('italic 500 84px "Cormorant Garamond"');
@@ -68,10 +78,12 @@ export async function recordVideo(videoEl, quotePayload, onProgress) {
     }
 
     // Ensure logo is loaded
+    onProgress(0.1, 'Logo hazırlanıyor...');
     await loadLogo();
 
     // Determine durations
     const videoDuration = Math.min(videoEl.duration || MAX_VIDEO_DURATION, MAX_VIDEO_DURATION);
+    onProgress(0.12, 'Kayıt başlıyor...');
     const totalDuration = videoDuration + OUTRO_DURATION;
 
     return new Promise((resolve, reject) => {
@@ -92,16 +104,26 @@ export async function recordVideo(videoEl, quotePayload, onProgress) {
                 const webmBlob = new Blob(chunks, { type: 'video/webm' });
 
                 // 2. Transcode to MP4 using FFmpeg
-                onProgress(0.95, 'MP4\'e dönüştürülüyor...'); // Custom signal for processing
+                onProgress(0.95, 'MP4 formatına dönüştürülüyor (Lütfen bekleyin)...');
 
                 const inputName = 'input.webm';
                 const outputName = 'output.mp4';
 
                 await ffmpeg.writeFile(inputName, await fetchFile(webmBlob));
 
-                // Libx264 for MP4, ultrafast for speed in browser
+                // Libx264 for MP4, ultrafast for maximum speed in browser
                 // -crf 22 is a good balance of quality/size
-                await ffmpeg.exec(['-i', inputName, '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '22', '-pix_fmt', 'yuv420p', outputName]);
+                // -r 30 forces constant frame rate to fix lagging
+                await ffmpeg.exec([
+                    '-i', inputName,
+                    '-c:v', 'libx264',
+                    '-preset', 'ultrafast',
+                    '-crf', '22',
+                    '-pix_fmt', 'yuv420p',
+                    '-r', '30',
+                    '-g', '60',
+                    outputName
+                ]);
 
                 const data = await ffmpeg.readFile(outputName);
                 const mp4Blob = new Blob([data.buffer], { type: 'video/mp4' });
@@ -208,15 +230,31 @@ export async function recordVideo(videoEl, quotePayload, onProgress) {
         }
 
         // Wait for video to be ready then start drawing
-        if (videoEl.readyState >= 2) {
+        const onStartRecording = () => {
             recordingStartTime = performance.now();
             drawFrame();
+        };
+
+        if (videoEl.readyState >= 2) {
+            onStartRecording();
         } else {
-            videoEl.addEventListener('canplay', function onCanPlay() {
+            const onCanPlay = () => {
                 videoEl.removeEventListener('canplay', onCanPlay);
-                recordingStartTime = performance.now();
-                drawFrame();
-            });
+                onStartRecording();
+            };
+            const onVideoError = (err) => {
+                videoEl.removeEventListener('error', onVideoError);
+                reject(new Error('Kaynak video oynatılamadı: ' + err.message));
+            };
+            videoEl.addEventListener('canplay', onCanPlay);
+            videoEl.addEventListener('error', onVideoError);
+
+            // Safety timeout for video readiness
+            setTimeout(() => {
+                if (phase === 'video' && !recordingStartTime) {
+                    onStartRecording(); // Try anyway
+                }
+            }, 3000);
         }
     });
 }
