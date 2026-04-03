@@ -159,19 +159,85 @@ const quotes = [
   "Zihnin güçlüyse, bedenin her şeyi yapar.",
   "Gülümse, çünkü direnmenin en güzel yoludur.",
   "En iyi yatırım, kendine yaptığın yatırımdır.",
+  "Sen başla, yol kendini gösterecektir.",
+  "Her nefes, yeni bir umut için bir fırsattır.",
+  "Güneşin doğuşuna odaklan, geceyi geride bırak.",
+  "Kendi sınırlarını zorlamak, özgürlüğün anahtarıdır.",
+  "Zihin neyi hayal ederse, el onu inşa eder.",
+  "Başkalarından değil, kendinden daha iyi olmaya odaklan.",
+  "Cesaret, korkusuzluk değil, korkuya rağmen devam etmektir.",
+  "En büyük projen, kendi karakterindir.",
+  "Küçük kazanımlar, büyük zaferlerin habercisidir.",
+  "Hayat, senin ona verdiğin anlam kadardır.",
+  "Zorluklar, elmastan daha değerli tecrübeler barındırır.",
+  "Her gün bir iyilik yap, kalbin ferahlasın.",
+  "İnandığın yolda yürürken, ayak seslerin dünyaya ilham olsun.",
+  "Kendi ışığını paylaştıkça, karanlık azalır.",
+  "Başarı, hazırlıklı olanlara fısıldar.",
+  "Dünü unutma ama bugünü yaşa ki yarını kurabilesin.",
+  "Huzur, içindeki sese kulak verdiğinde başlar.",
+  "Büyük idealler, büyük disiplin gerektirir.",
+  "Hayallerin, senin ruhunun pusulasıdır.",
+  "Asla 'geç kaldım' deme, 'başlıyorum' de.",
+  "Sabrın sonu, selametin tam ortasıdır.",
+  "Işığını söndürmeye çalışanlara, alevinle cevap ver.",
+  "Kendini tanımak, en büyük bilgeliktir.",
+  "Her engel, sana yeni bir yetenek kazandırır.",
+  "Gülümsemen, dünyadaki en güçlü silahtır.",
+  "Hedefine sadık kal, yol seni gitmen gereken yere götürür.",
+  "Tutku, sıradan olanı sıra dışı yapandır.",
+  "Emeğin sessizdir ama sonuçların gürültülü olsun.",
+  "Kendine güven, evren sana yol açacaktır.",
+  "Her düşüş, daha yüksek bir sıçrayış için hazırlıktır.",
+  "Zamanını güzelliklere harca, nefret seni yorar.",
+  "Kalbinin sesini dinle, o seni yanıltmaz.",
+  "Küçük bir adım, beklemekten bin kat daha iyidir.",
+  "Zirveye değil, attığın her adıma odaklan.",
+  "Hayat bir senfoni, sen kendi partini en iyi şekilde çal.",
+  "Başkalarının gölgesinde değil, kendi güneşinde parla.",
+  "Zorluklar, ruhunun parlamasını sağlayan zımparalardır.",
+  "Sen bir mucizesin, bunu asla unutma.",
+  "Başlamak için en iyi zaman, şimdidir.",
+  "Kararlılık, imkansızın en büyük düşmanıdır.",
+  "Içindeki devi uyandır, dünya seni bekliyor.",
+  "Hayatın renklerini sen seç, fırça senin elinde.",
+  "Korkularını yanına al ama niiden seni yönetmesine izin verme.",
+  "Her sabah bir hediye olarak verilir, onu iyi aç.",
+  "Senin enerjin, senin imzan gibidir.",
+  "Büyük değişimler, küçük kararlarla başlar.",
+  "Hatalarından ders al, onlar senin basamaklarındır.",
+  "Potansiyelin, okyanus kadar derindir.",
+  "Kendini olduğun gibi sev, gelişim doğal olarak gelecektir.",
+  "Dürüstlük ve azim, seni her zaman en doğru yere ulaştırır.",
+  "Yolun sonunda değil, yolun her anında başarıyı bul.",
   "Sen başla, yol kendini gösterecektir."
 ];
 
+let availableIndices = [];
 let lastIndex = -1;
 
 /**
- * Returns a random motivational quote, avoiding immediate repeats
+ * Returns a random motivational quote, ensuring no repeats until all are seen
  */
 export function getRandomQuote() {
-  let index;
-  do {
-    index = Math.floor(Math.random() * quotes.length);
-  } while (index === lastIndex && quotes.length > 1);
+  if (availableIndices.length === 0) {
+    // Fill the pool with all indices and shuffle
+    availableIndices = Array.from({ length: quotes.length }, (_, i) => i);
+    // Fisher-Yates shuffle
+    for (let i = availableIndices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [availableIndices[i], availableIndices[j]] = [availableIndices[j], availableIndices[i]];
+    }
+
+    // Safety check: avoid repeating the last quote as the first of the new cycle
+    if (availableIndices.length > 1 && availableIndices[availableIndices.length - 1] === lastIndex) {
+      const swapIdx = Math.floor(Math.random() * (availableIndices.length - 1));
+      [availableIndices[availableIndices.length - 1], availableIndices[swapIdx]] =
+        [availableIndices[swapIdx], availableIndices[availableIndices.length - 1]];
+    }
+  }
+
+  const index = availableIndices.pop();
   lastIndex = index;
   return quotes[index];
 }
