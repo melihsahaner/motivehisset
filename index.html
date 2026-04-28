@@ -86,13 +86,28 @@
           <!-- Text Customization Section -->
           <div class="settings-panel">
             <div class="settings-group">
-              <div class="label-with-action">
-                <label>Metni Düzenle</label>
-                <button id="btn-copy-text" class="btn-copy-small" title="Kopyala">
-                  <span class="copy-icon">📋</span>
-                </button>
-              </div>
-              <textarea id="input-quote" placeholder="Sözünüzü buraya yazın..."></textarea>
+              <label>Sahne Sayısı</label>
+              <select id="select-scene-count" class="input-select">
+                <option value="1">1 Sahne</option>
+                <option value="2">2 Sahne</option>
+                <option value="3" selected>3 Sahne</option>
+                <option value="4">4 Sahne</option>
+                <option value="5">5 Sahne</option>
+              </select>
+            </div>
+            
+            <button id="btn-generate" class="btn btn-primary btn-full" style="margin-bottom: 10px;">
+              <span class="btn-icon">✨</span>
+              <span>Videoyu Oluştur (Yapay Zeka)</span>
+            </button>
+
+            <button id="btn-manual" class="btn btn-full" style="margin-bottom: 15px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1);">
+              <span class="btn-icon">🛠️</span>
+              <span>Manuel Oluştur (Hızlı Başlat)</span>
+            </button>
+            
+            <div id="scenes-container" class="scenes-container">
+              <!-- Textareas will be injected here dynamically -->
             </div>
 
             <div class="settings-grid">
@@ -121,21 +136,7 @@
             </div>
           </div>
 
-          <div class="controls-row">
-            <button id="btn-refresh" class="btn btn-glass" title="Yenile">
-              <span class="btn-icon">🔄</span>
-              <span>Yenile</span>
-            </button>
-            <button id="btn-change-quote" class="btn btn-glass" title="Söz Değiştir">
-              <span class="btn-icon">✏️</span>
-              <span>Söz Değiştir</span>
-            </button>
-            <button id="btn-change-video" class="btn btn-glass" title="Video Değiştir">
-              <span class="btn-icon">🎬</span>
-              <span>Video Değiştir</span>
-            </button>
-          </div>
-          <button id="btn-download" class="btn btn-primary btn-full" title="İndir">
+          <button id="btn-download" class="btn btn-primary btn-full" title="İndir" disabled>
             <span class="btn-icon">⬇️</span>
             <span>Videoyu İndir</span>
           </button>

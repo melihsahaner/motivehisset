@@ -1,5 +1,6 @@
 // MotiveHisset - Main Application
 import './style.css';
+import { generateScenesQuotes } from './xai.js';
 import { getRandomQuote } from './quotes.js';
 import { setApiKey, fetchRandomVideo, validateApiKey } from './pexels.js';
 import { recordVideo, downloadBlob } from './recorder.js';
@@ -14,9 +15,12 @@ const quoteText = document.getElementById('quote-text');
 const quoteOverlay = document.getElementById('quote-overlay');
 const outroOverlay = document.getElementById('outro-overlay');
 const videoLoading = document.getElementById('video-loading');
-const btnRefresh = document.getElementById('btn-refresh');
-const btnChangeQuote = document.getElementById('btn-change-quote');
-const btnChangeVideo = document.getElementById('btn-change-video');
+
+const selectSceneCount = document.getElementById('select-scene-count');
+const btnGenerate = document.getElementById('btn-generate');
+const btnManual = document.getElementById('btn-manual');
+const scenesContainer = document.getElementById('scenes-container');
+
 const btnDownload = document.getElementById('btn-download');
 const downloadProgress = document.getElementById('download-progress');
 const progressFill = document.getElementById('progress-fill');
@@ -25,8 +29,7 @@ const bgVideo = document.getElementById('bg-video');
 const videoWrapper = document.getElementById('video-wrapper');
 const btnFullscreen = document.getElementById('btn-fullscreen');
 
-// DOM Elements (Customization)
-const inputQuote = document.getElementById('input-quote');
+// Text Customization
 const btnAligns = document.querySelectorAll('.btn-align');
 const rangeFontSize = document.getElementById('range-font-size');
 const valFontSize = document.getElementById('val-font-size');
@@ -34,18 +37,17 @@ const rangeLineHeight = document.getElementById('range-line-height');
 const valLineHeight = document.getElementById('val-line-height');
 
 // Constants
-const MAX_VIDEO_DURATION = 10; // seconds
-const OUTRO_DURATION = 3; // seconds
-
-const btnCopyText = document.getElementById('btn-copy-text');
+const SCENE_DURATION = 6; // Her sahne için saniye
+const OUTRO_DURATION = 3; // saniye
 
 // State
-let currentQuote = '';
-let currentVideoUrl = '';
+let scenes = [];
+let currentSceneIndex = 0;
 let isLoading = false;
 let isRecording = false;
 let previewTimer = null;
 let outroTimer = null;
+let sceneStartTime = 0;
 
 let textSettings = {
   align: 'center',
@@ -57,8 +59,9 @@ let textSettings = {
 // API Key Management
 // ========================================
 function initApiKey() {
+  const defaultKey = 'n8Vz12g2eGrmN8CNertGVonXNcWfn7Wi2pvGYMq0FBr9pvcnFjulqU93';
+  setApiKey(defaultKey);
   showMainApp();
-  loadContent();
 }
 
 apiKeySubmit.addEventListener('click', async () => {
@@ -75,7 +78,6 @@ apiKeySubmit.addEventListener('click', async () => {
       setApiKey(key);
       localStorage.setItem('pexels_api_key', key);
       showMainApp();
-      loadContent();
     } else {
       showToast('Geçersiz API anahtarı. Lütfen kontrol edin.', 'error');
     }
@@ -97,49 +99,316 @@ function showMainApp() {
 }
 
 // ========================================
-// Preview Playback with Outro
+// Scene Generation
+// ========================================
+async function handleGenerate() {
+  if (isLoading || isRecording) return;
+  isLoading = true;
+  
+  stopPreviewLoop();
+  videoLoading.classList.remove('hidden');
+  outroOverlay.classList.add('hidden');
+  quoteOverlay.classList.add('hidden');
+  setButtonsDisabled(true);
+  btnDownload.disabled = true;
+  scenesContainer.innerHTML = '';
+  
+  const count = parseInt(selectSceneCount.value, 10);
+  const loadingSpan = videoLoading.querySelector('span');
+  
+  try {
+    // 1. Fetch AI Quotes
+    loadingSpan.textContent = 'Yapay zeka metinleri üretiyor...';
+    let quotes;
+    try {
+        quotes = await generateScenesQuotes(count);
+    } catch (e) {
+        console.warn('Yapay zeka hatası, yedek metinler yükleniyor:', e);
+        showToast('API hatası: Yedek metinler kullanılıyor.', 'error');
+        quotes = [];
+        for (let i = 0; i < count; i++) {
+            quotes.push(getRandomQuote());
+        }
+    }
+    
+    // 2. Fetch Videos
+    loadingSpan.textContent = 'Videolar indiriliyor...';
+    scenes = [];
+    
+    for (let i = 0; i < count; i++) {
+        loadingSpan.textContent = `Video ${i+1}/${count} indiriliyor...`;
+        const videoData = await fetchRandomVideo();
+        
+        const response = await fetch(videoData.url, { mode: 'cors' });
+        if (!response.ok) throw new Error('Video indirilemedi');
+        
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        
+        scenes.push({
+            quote: quotes[i],
+            videoUrl: videoData.url,
+            blobUrl: blobUrl
+        });
+    }
+    
+    renderSceneInputs();
+    currentSceneIndex = 0;
+    
+    videoLoading.classList.add('hidden');
+    isLoading = false;
+    setButtonsDisabled(false);
+    btnDownload.disabled = false;
+    
+    startPreviewLoop();
+    
+  } catch (error) {
+    console.error(error);
+    showToast(error.message || 'Oluşturma hatası', 'error');
+    isLoading = false;
+    videoLoading.classList.add('hidden');
+    setButtonsDisabled(false);
+  }
+}
+
+btnGenerate.addEventListener('click', handleGenerate);
+btnManual.addEventListener('click', handleManualGenerate);
+
+async function handleManualGenerate() {
+    if (isLoading) return;
+    
+    const count = parseInt(selectSceneCount.value, 10);
+    isLoading = true;
+    setButtonsDisabled(true);
+    
+    // Clear previous scenes
+    scenes.forEach(s => URL.revokeObjectURL(s.blobUrl));
+    scenes = [];
+    
+    videoLoading.classList.remove('hidden');
+    const loadingSpan = videoLoading.querySelector('span');
+    
+    try {
+        // Use example quotes from our pool
+        const quotes = [];
+        for (let i = 0; i < count; i++) {
+            quotes.push(getRandomQuote());
+        }
+        
+        // 2. Fetch Videos
+        for (let i = 0; i < count; i++) {
+            loadingSpan.textContent = `Örnek videolar indiriliyor (${i+1}/${count})...`;
+            const videoData = await fetchRandomVideo();
+            
+            const response = await fetch(videoData.url, { mode: 'cors' });
+            if (!response.ok) throw new Error('Video indirilemedi');
+            
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            
+            scenes.push({
+                quote: quotes[i],
+                videoUrl: videoData.url,
+                blobUrl: blobUrl
+            });
+        }
+        
+        renderSceneInputs();
+        currentSceneIndex = 0;
+        
+        videoLoading.classList.add('hidden');
+        isLoading = false;
+        setButtonsDisabled(false);
+        btnDownload.disabled = false;
+        
+        startPreviewLoop();
+        
+    } catch (error) {
+        console.error(error);
+        showToast('Manuel başlatma hatası', 'error');
+        isLoading = false;
+        videoLoading.classList.add('hidden');
+        setButtonsDisabled(false);
+    }
+}
+
+function renderSceneInputs() {
+    scenesContainer.innerHTML = '';
+    scenes.forEach((scene, index) => {
+        const item = document.createElement('div');
+        item.className = 'scene-item';
+        
+        const header = document.createElement('div');
+        header.className = 'scene-header';
+        header.innerHTML = `
+            <span>Sahne ${index + 1}</span>
+            <div class="scene-actions">
+                <button class="btn-action-small btn-change-quote" title="Yeni Söz" data-index="${index}">✏️</button>
+                <button class="btn-action-small btn-change-video" title="Yeni Video" data-index="${index}">🎬</button>
+                <button class="btn-action-small btn-copy" title="Kopyala" data-index="${index}">📋</button>
+            </div>
+        `;
+                           
+        const textarea = document.createElement('textarea');
+        textarea.value = scene.quote;
+        textarea.addEventListener('input', (e) => {
+            scenes[index].quote = e.target.value;
+            // Ekranda oynayan sahne buysa, metni anında güncelle
+            if (index === currentSceneIndex && !isRecording && !quoteOverlay.classList.contains('hidden')) {
+                updateQuoteUI(scenes[index].quote);
+            }
+        });
+        
+        item.appendChild(header);
+        item.appendChild(textarea);
+        scenesContainer.appendChild(item);
+    });
+    
+    document.querySelectorAll('.btn-copy').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const idx = e.currentTarget.getAttribute('data-index');
+            try {
+                await navigator.clipboard.writeText(scenes[idx].quote);
+                showToast('Metin kopyalandı!', 'success');
+            } catch (err) {}
+        });
+    });
+
+    document.querySelectorAll('.btn-change-quote').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const idx = parseInt(e.currentTarget.getAttribute('data-index'), 10);
+            const newQuote = getRandomQuote();
+            scenes[idx].quote = newQuote;
+            
+            // Update textarea
+            const parentItem = e.currentTarget.closest('.scene-item');
+            parentItem.querySelector('textarea').value = newQuote;
+            
+            if (idx === currentSceneIndex && !isRecording && !quoteOverlay.classList.contains('hidden')) {
+                updateQuoteUI(newQuote);
+            }
+        });
+    });
+
+    document.querySelectorAll('.btn-change-video').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            if (isLoading) return;
+            const idx = parseInt(e.currentTarget.getAttribute('data-index'), 10);
+            
+            videoLoading.classList.remove('hidden');
+            videoLoading.querySelector('span').textContent = 'Yeni video indiriliyor...';
+            isLoading = true;
+            setButtonsDisabled(true);
+
+            try {
+                const videoData = await fetchRandomVideo();
+                const response = await fetch(videoData.url, { mode: 'cors' });
+                if (!response.ok) throw new Error('Video indirilemedi');
+                const blob = await response.blob();
+                
+                scenes[idx].blobUrl = URL.createObjectURL(blob);
+                scenes[idx].videoUrl = videoData.url;
+
+                if (idx === currentSceneIndex && !isRecording) {
+                    videoPlayer.src = scenes[idx].blobUrl;
+                    videoPlayer.load();
+                    videoPlayer.play().catch(() => {});
+                    if (bgVideo) {
+                        bgVideo.src = scenes[idx].blobUrl;
+                        bgVideo.load();
+                        bgVideo.play().catch(() => {});
+                    }
+                }
+            } catch (err) {
+                showToast('Yeni video alınamadı.', 'error');
+            } finally {
+                isLoading = false;
+                setButtonsDisabled(false);
+                videoLoading.classList.add('hidden');
+            }
+        });
+    });
+}
+
+function setButtonsDisabled(disabled) {
+  btnGenerate.disabled = disabled;
+  btnManual.disabled = disabled;
+  selectSceneCount.disabled = disabled;
+}
+
+// ========================================
+// Preview Playback Logic
 // ========================================
 function startPreviewLoop() {
+  if (scenes.length === 0) return;
   stopPreviewLoop();
-
-  // Hide outro, show quote
-  outroOverlay.classList.add('hidden');
-  quoteOverlay.classList.remove('hidden');
-
-  videoPlayer.currentTime = 0;
-  videoPlayer.loop = false;
-  videoPlayer.muted = true;
-  videoPlayer.play().catch(() => { });
-  if (bgVideo) {
-    bgVideo.currentTime = 0;
-    bgVideo.play().catch(() => { });
-  }
-
-  // Monitor video time to cut at MAX_VIDEO_DURATION
-  function checkTime() {
-    if (isRecording) return;
-
-    if (videoPlayer.currentTime >= MAX_VIDEO_DURATION || videoPlayer.ended) {
-      videoPlayer.pause();
-      if (bgVideo) bgVideo.pause();
+  
+  if (currentSceneIndex >= scenes.length) {
       showOutro();
       return;
-    }
-    previewTimer = requestAnimationFrame(checkTime);
   }
+  
+  const scene = scenes[currentSceneIndex];
+  
+  outroOverlay.classList.add('hidden');
+  quoteOverlay.classList.remove('hidden');
+  
+  updateQuoteUI(scene.quote);
+  
+  const playScene = () => {
+      videoPlayer.currentTime = 0;
+      videoPlayer.loop = false;
+      videoPlayer.muted = true;
+      videoPlayer.play().catch(() => {});
+      
+      if (bgVideo) {
+          if (bgVideo.src !== scene.blobUrl) bgVideo.src = scene.blobUrl;
+          bgVideo.currentTime = 0;
+          bgVideo.play().catch(() => {});
+      }
+      
+      sceneStartTime = performance.now();
+      checkTime();
+  };
+  
+  // Video kaynağı aynıysa beklemeden oynat
+  if (!videoPlayer.src.includes(scene.blobUrl)) {
+      videoPlayer.src = scene.blobUrl;
+      videoPlayer.load();
+      const onCanPlay = () => {
+          videoPlayer.removeEventListener('canplaythrough', onCanPlay);
+          playScene();
+      };
+      videoPlayer.addEventListener('canplaythrough', onCanPlay);
+  } else {
+      playScene();
+  }
+}
 
-  previewTimer = requestAnimationFrame(checkTime);
+function checkTime() {
+    if (isRecording) return;
+    
+    const elapsed = (performance.now() - sceneStartTime) / 1000;
+    
+    // Geçiş süresi dolduysa veya video bittiyse bir sonraki sahneye geç
+    if (elapsed >= SCENE_DURATION || videoPlayer.ended) {
+        currentSceneIndex++;
+        startPreviewLoop();
+        return;
+    }
+    
+    previewTimer = requestAnimationFrame(checkTime);
 }
 
 function showOutro() {
-  // Show white outro overlay with logo
   quoteOverlay.classList.add('hidden');
   outroOverlay.classList.remove('hidden');
 
-  // After OUTRO_DURATION, loop back
   outroTimer = setTimeout(() => {
-    outroOverlay.classList.add('hidden');
-    quoteOverlay.classList.remove('hidden');
+    currentSceneIndex = 0;
     startPreviewLoop();
   }, OUTRO_DURATION * 1000);
 }
@@ -153,36 +422,8 @@ function stopPreviewLoop() {
     clearTimeout(outroTimer);
     outroTimer = null;
   }
-  if (bgVideo) {
-    bgVideo.pause();
-  }
-}
-
-
-// Sync Background Video
-function syncBgVideo() {
-  if (bgVideo && videoPlayer) {
-    bgVideo.currentTime = videoPlayer.currentTime;
-    if (videoPlayer.paused) {
-      bgVideo.pause();
-    } else {
-      bgVideo.play().catch(() => { });
-    }
-  }
-}
-
-// ========================================
-// Content Loading
-// ========================================
-async function loadContent() {
-  loadNewQuote();
-  await loadNewVideo();
-}
-
-function loadNewQuote() {
-  currentQuote = getRandomQuote();
-  updateQuoteUI(currentQuote);
-  inputQuote.value = currentQuote;
+  videoPlayer.pause();
+  if (bgVideo) bgVideo.pause();
 }
 
 function updateQuoteUI(text) {
@@ -191,36 +432,34 @@ function updateQuoteUI(text) {
   quoteText.style.fontSize = textSettings.fontSize;
   quoteText.style.lineHeight = textSettings.lineHeight;
 
-  // Handle justify-content for centering
   if (textSettings.align === 'center') {
     quoteOverlay.style.alignItems = 'center';
     quoteOverlay.style.textAlign = 'center';
   } else if (textSettings.align === 'left') {
-    quoteOverlay.style.alignItems = 'center'; // Center vertically
+    quoteOverlay.style.alignItems = 'center';
     quoteOverlay.style.textAlign = 'left';
   } else {
     quoteOverlay.style.alignItems = 'center';
     quoteOverlay.style.textAlign = 'right';
   }
 
-  // Restart animation
+  // Animasyonu sıfırla
   quoteText.style.animation = 'none';
-  quoteText.offsetHeight;
+  quoteText.offsetHeight; 
   quoteText.style.animation = '';
 }
 
-// Text Settings Listeners
-inputQuote.addEventListener('input', (e) => {
-  currentQuote = e.target.value;
-  quoteText.textContent = currentQuote;
-});
-
+// ========================================
+// Text Customization Settings
+// ========================================
 btnAligns.forEach(btn => {
   btn.addEventListener('click', () => {
     btnAligns.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     textSettings.align = btn.dataset.align;
-    updateQuoteUI(currentQuote);
+    if (scenes.length > 0 && !quoteOverlay.classList.contains('hidden')) {
+        updateQuoteUI(scenes[currentSceneIndex].quote);
+    }
   });
 });
 
@@ -228,117 +467,41 @@ rangeFontSize.addEventListener('input', (e) => {
   const val = e.target.value + 'rem';
   textSettings.fontSize = val;
   valFontSize.textContent = val;
-  updateQuoteUI(currentQuote);
+  if (scenes.length > 0 && !quoteOverlay.classList.contains('hidden')) {
+      updateQuoteUI(scenes[currentSceneIndex].quote);
+  }
 });
 
 rangeLineHeight.addEventListener('input', (e) => {
   const val = e.target.value;
   textSettings.lineHeight = val;
   valLineHeight.textContent = val;
-  updateQuoteUI(currentQuote);
-});
-
-async function loadNewVideo() {
-  if (isLoading) return;
-  isLoading = true;
-
-  stopPreviewLoop();
-  videoLoading.classList.remove('hidden');
-  outroOverlay.classList.add('hidden');
-  setButtonsDisabled(true);
-
-  try {
-    const videoData = await fetchRandomVideo();
-    currentVideoUrl = videoData.url;
-
-    // Fetch as blob to handle COEP/CORS more robustly
-    const response = await fetch(currentVideoUrl, { mode: 'cors' });
-    if (!response.ok) throw new Error('Video indirilemedi (Network error)');
-    const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-
-    return new Promise((resolve, reject) => {
-      const onReady = () => {
-        videoLoading.classList.add('hidden');
-        isLoading = false;
-        setButtonsDisabled(false);
-        startPreviewLoop();
-        resolve();
-      };
-
-      videoPlayer.addEventListener('canplaythrough', onReady, { once: true });
-
-      videoPlayer.onerror = () => {
-        isLoading = false;
-        setButtonsDisabled(false);
-        videoLoading.classList.add('hidden');
-        showToast('Video yüklenemedi. Tekrar deneyin.', 'error');
-        reject(new Error('Video load failed'));
-      };
-
-      videoPlayer.crossOrigin = 'anonymous';
-      videoPlayer.src = blobUrl;
-      videoPlayer.load();
-
-      if (bgVideo) {
-        bgVideo.src = blobUrl;
-        bgVideo.load();
-      }
-    });
-  } catch (error) {
-    isLoading = false;
-    setButtonsDisabled(false);
-    videoLoading.classList.add('hidden');
-    showToast(error.message || 'Video alınamadı.', 'error');
+  if (scenes.length > 0 && !quoteOverlay.classList.contains('hidden')) {
+      updateQuoteUI(scenes[currentSceneIndex].quote);
   }
-}
-
-function setButtonsDisabled(disabled) {
-  btnRefresh.disabled = disabled;
-  btnChangeQuote.disabled = disabled;
-  btnChangeVideo.disabled = disabled;
-  btnDownload.disabled = disabled;
-}
+});
 
 // ========================================
-// Button Handlers
+// Video Recording & Download
 // ========================================
-btnRefresh.addEventListener('click', async () => {
-  loadNewQuote();
-  await loadNewVideo();
-});
-
-btnChangeQuote.addEventListener('click', () => {
-  loadNewQuote();
-});
-
-btnChangeVideo.addEventListener('click', async () => {
-  await loadNewVideo();
-});
-
 btnDownload.addEventListener('click', async () => {
-  if (isRecording || !currentVideoUrl) return;
+  if (isRecording || scenes.length === 0) return;
   isRecording = true;
 
-  // Stop preview loop during recording
   stopPreviewLoop();
   outroOverlay.classList.add('hidden');
   quoteOverlay.classList.remove('hidden');
 
-  // Show progress
   downloadProgress.classList.remove('hidden');
   progressFill.style.width = '0%';
   progressText.textContent = 'Video hazırlanıyor...';
   setButtonsDisabled(true);
+  btnDownload.disabled = true;
 
   try {
-    const blob = await recordVideo(videoPlayer, {
-      text: currentQuote,
-      ...textSettings
-    }, (progress, statusMsg) => {
+    const blob = await recordVideo(scenes, textSettings, (progress, statusMsg) => {
       const pct = Math.round(progress * 100);
       progressFill.style.width = pct + '%';
-
       if (statusMsg) {
         progressText.textContent = statusMsg;
       } else if (pct < 90) {
@@ -348,7 +511,6 @@ btnDownload.addEventListener('click', async () => {
       }
     });
 
-    // Download as MP4
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
     downloadBlob(blob, `motivehisset-${timestamp}.mp4`);
 
@@ -362,11 +524,11 @@ btnDownload.addEventListener('click', async () => {
   } finally {
     isRecording = false;
     setButtonsDisabled(false);
+    btnDownload.disabled = false;
 
-    // Restart preview loop
+    currentSceneIndex = 0;
     startPreviewLoop();
 
-    // Hide progress after delay
     setTimeout(() => {
       downloadProgress.classList.add('hidden');
     }, 3000);
@@ -388,7 +550,6 @@ function toggleFullscreen() {
 
 btnFullscreen.addEventListener('click', toggleFullscreen);
 
-// ESC key to exit if handled by browser is enough, but adding listener for custom UI if needed
 document.addEventListener('fullscreenchange', () => {
   if (document.fullscreenElement) {
     btnFullscreen.querySelector('.fs-icon').textContent = '✕';
@@ -402,49 +563,20 @@ document.addEventListener('fullscreenchange', () => {
 // ========================================
 function showToast(message, type = 'error') {
   document.querySelectorAll('.toast').forEach(el => el.remove());
-
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   toast.textContent = message;
   document.body.appendChild(toast);
-
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       toast.classList.add('show');
     });
   });
-
   setTimeout(() => {
     toast.classList.remove('show');
     setTimeout(() => toast.remove(), 400);
   }, 4000);
 }
 
-// ========================================
-// Copy Text Functionality
-// ========================================
-btnCopyText.addEventListener('click', async () => {
-  const text = inputQuote.value;
-  try {
-    await navigator.clipboard.writeText(text);
-
-    // Success feedback
-    const originalIcon = btnCopyText.querySelector('.copy-icon').textContent;
-    btnCopyText.querySelector('.copy-icon').textContent = '✅';
-    btnCopyText.classList.add('success');
-
-    setTimeout(() => {
-      btnCopyText.querySelector('.copy-icon').textContent = '📋';
-      btnCopyText.classList.remove('success');
-    }, 2000);
-
-    showToast('Metin kopyalandı! ✅', 'success');
-  } catch (err) {
-    showToast('Kopyalama başarısız oldu.', 'error');
-  }
-});
-
-// ========================================
 // Initialize
-// ========================================
 initApiKey();

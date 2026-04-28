@@ -52,12 +52,12 @@ loadLogo();
 
 /**
  * Record a video with text overlay and white outro
- * @param {HTMLVideoElement} videoEl - source video element
- * @param {string|object} quotePayload - motivational quote or settings object
+ * @param {Array} scenes - array of scenes { quote, videoUrl, blobUrl }
+ * @param {object} textSettings - text settings object
  * @param {Function} onProgress - progress callback (0-1)
  * @returns {Promise<Blob>} - recorded MP4 video blob
  */
-export async function recordVideo(videoEl, quotePayload, onProgress) {
+export async function recordVideo(scenes, textSettings, onProgress) {
     const canvas = document.getElementById('record-canvas');
     const ctx = canvas.getContext('2d');
 
@@ -69,29 +69,50 @@ export async function recordVideo(videoEl, quotePayload, onProgress) {
 
     onProgress(0.05, 'Yazı tipleri yükleniyor...');
     try {
-        // Adding a small timeout for font loading to prevent hang
         const fontPromise = document.fonts.load('italic 500 84px "Cormorant Garamond"');
         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Font timeout')), 2000));
         await Promise.race([fontPromise, timeoutPromise]);
     } catch (e) {
-        console.warn('Font load failed or timed out, proceeding with fallback:', e);
+        console.warn('Font load failed or timed out:', e);
     }
 
-    // Ensure logo is loaded
     onProgress(0.1, 'Logo hazırlanıyor...');
     await loadLogo();
 
-    // Determine durations
-    const videoDuration = Math.min(videoEl.duration || MAX_VIDEO_DURATION, MAX_VIDEO_DURATION);
-    onProgress(0.12, 'Kayıt başlıyor...');
+    // Prepare video elements for each scene
+    onProgress(0.12, 'Sahneler hazırlanıyor...');
+    const videoEls = await Promise.all(scenes.map((scene) => {
+        return new Promise((resolve, reject) => {
+            const v = document.createElement('video');
+            v.crossOrigin = 'anonymous';
+            v.muted = true;
+            v.playsInline = true;
+            v.src = scene.blobUrl;
+            v.load();
+            const onCanPlay = () => {
+                v.removeEventListener('canplaythrough', onCanPlay);
+                resolve(v);
+            };
+            v.addEventListener('canplaythrough', onCanPlay);
+            v.onerror = () => reject(new Error('Video yüklenemedi'));
+            
+            // Fallback timeout
+            setTimeout(() => resolve(v), 3000); 
+        });
+    }));
+
+    const SCENE_DURATION = 6;
+    const videoDuration = scenes.length * SCENE_DURATION;
     const totalDuration = videoDuration + OUTRO_DURATION;
+    
+    onProgress(0.15, 'Kayıt başlıyor...');
 
     return new Promise((resolve, reject) => {
         const stream = canvas.captureStream(FPS);
 
         const recorder = new MediaRecorder(stream, {
             mimeType: 'video/webm;codecs=vp9',
-            videoBitsPerSecond: 8000000 // Higher bitrate for cleaner source
+            videoBitsPerSecond: 8000000
         });
 
         const chunks = [];
@@ -102,8 +123,6 @@ export async function recordVideo(videoEl, quotePayload, onProgress) {
         recorder.onstop = async () => {
             try {
                 const webmBlob = new Blob(chunks, { type: 'video/webm' });
-
-                // 2. Transcode to MP4 using FFmpeg
                 onProgress(0.95, 'MP4 formatına dönüştürülüyor (Lütfen bekleyin)...');
 
                 const inputName = 'input.webm';
@@ -111,9 +130,6 @@ export async function recordVideo(videoEl, quotePayload, onProgress) {
 
                 await ffmpeg.writeFile(inputName, await fetchFile(webmBlob));
 
-                // Libx264 for MP4, ultrafast for maximum speed in browser
-                // -crf 22 is a good balance of quality/size
-                // -r 30 forces constant frame rate to fix lagging
                 await ffmpeg.exec([
                     '-i', inputName,
                     '-c:v', 'libx264',
@@ -130,6 +146,9 @@ export async function recordVideo(videoEl, quotePayload, onProgress) {
 
                 console.log('MP4 conversion complete, size:', mp4Blob.size);
                 resolve(mp4Blob);
+                
+                // Cleanup video elements
+                videoEls.forEach(v => { v.pause(); v.src = ''; });
             } catch (err) {
                 console.error('MP4 conversion error:', err);
                 reject(err);
@@ -140,21 +159,11 @@ export async function recordVideo(videoEl, quotePayload, onProgress) {
             reject(new Error('Kayıt hatası: ' + (e.error || e.message || 'unknown')));
         };
 
-        // Request data every 100ms
         recorder.start(100);
 
-        // Reset video
-        videoEl.currentTime = 0;
-        videoEl.muted = true;
-
-        const playPromise = videoEl.play();
-        if (playPromise) {
-            playPromise.catch(e => console.warn('Play failed:', e));
-        }
-
         let recordingStartTime = performance.now();
-        let phase = 'video';
-        let outroStartTime = null;
+        let currentSceneIndex = -1;
+        let activeVideo = null;
 
         function drawFrame() {
             if (recorder.state !== 'recording') return;
@@ -162,11 +171,23 @@ export async function recordVideo(videoEl, quotePayload, onProgress) {
             const now = performance.now();
             const elapsed = (now - recordingStartTime) / 1000;
 
-            if (phase === 'video') {
-                // Draw video frame to canvas
-                drawVideoCover(ctx, videoEl, CANVAS_WIDTH, CANVAS_HEIGHT);
+            if (elapsed < videoDuration) {
+                // Video phase
+                const sceneIndex = Math.floor(elapsed / SCENE_DURATION);
+                
+                // Transition to new scene
+                if (sceneIndex !== currentSceneIndex) {
+                    if (activeVideo) activeVideo.pause();
+                    currentSceneIndex = sceneIndex;
+                    activeVideo = videoEls[sceneIndex];
+                    activeVideo.currentTime = 0;
+                    activeVideo.play().catch(e => console.warn('Play failed:', e));
+                }
 
-                // Draw cinematic vignette for text readability
+                if (activeVideo) {
+                    drawVideoCover(ctx, activeVideo, CANVAS_WIDTH, CANVAS_HEIGHT);
+                }
+
                 const vignette = ctx.createRadialGradient(
                     CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.3,
                     CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 0.6
@@ -176,29 +197,30 @@ export async function recordVideo(videoEl, quotePayload, onProgress) {
                 ctx.fillStyle = vignette;
                 ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-                // Draw quote text with intro animation
-                drawQuoteText(ctx, quotePayload, CANVAS_WIDTH, CANVAS_HEIGHT, elapsed);
+                const sceneElapsed = elapsed % SCENE_DURATION;
+                
+                // Combine text and textSettings
+                const quotePayload = {
+                    text: scenes[sceneIndex].quote,
+                    align: textSettings.align,
+                    fontSize: textSettings.fontSize,
+                    lineHeight: textSettings.lineHeight
+                };
 
-                // Draw branding overlays (Poppins font)
+                drawQuoteText(ctx, quotePayload, CANVAS_WIDTH, CANVAS_HEIGHT, sceneElapsed);
                 drawBranding(ctx, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-                // Update progress
                 onProgress(Math.min(elapsed / totalDuration, 0.7));
-
-                // Check if we should transition to outro
-                if (elapsed >= videoDuration || videoEl.ended) {
-                    phase = 'outro';
-                    outroStartTime = performance.now();
-                    videoEl.pause();
+            } else {
+                // Outro phase
+                if (activeVideo) {
+                    activeVideo.pause();
+                    activeVideo = null;
                 }
-            }
-
-            if (phase === 'outro') {
-                // Draw white background
+                
                 ctx.fillStyle = '#FFFFFF';
                 ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-                // Draw logo centered
                 if (logoImage) {
                     const maxLogoW = CANVAS_WIDTH * 0.5;
                     const maxLogoH = CANVAS_HEIGHT * 0.3;
@@ -210,17 +232,14 @@ export async function recordVideo(videoEl, quotePayload, onProgress) {
                     ctx.drawImage(logoImage, logoX, logoY, logoW, logoH);
                 }
 
-                const outroElapsed = (performance.now() - outroStartTime) / 1000;
-                const totalProgress = (videoDuration + outroElapsed) / totalDuration;
+                const outroElapsed = elapsed - videoDuration;
+                const totalProgress = elapsed / totalDuration;
                 onProgress(Math.min(totalProgress, 0.99));
 
                 if (outroElapsed >= OUTRO_DURATION) {
                     onProgress(1);
-                    // Stop recording after a small delay to ensure last frame is captured
                     setTimeout(() => {
-                        if (recorder.state === 'recording') {
-                            recorder.stop();
-                        }
+                        if (recorder.state === 'recording') recorder.stop();
                     }, 100);
                     return;
                 }
@@ -229,33 +248,7 @@ export async function recordVideo(videoEl, quotePayload, onProgress) {
             requestAnimationFrame(drawFrame);
         }
 
-        // Wait for video to be ready then start drawing
-        const onStartRecording = () => {
-            recordingStartTime = performance.now();
-            drawFrame();
-        };
-
-        if (videoEl.readyState >= 2) {
-            onStartRecording();
-        } else {
-            const onCanPlay = () => {
-                videoEl.removeEventListener('canplay', onCanPlay);
-                onStartRecording();
-            };
-            const onVideoError = (err) => {
-                videoEl.removeEventListener('error', onVideoError);
-                reject(new Error('Kaynak video oynatılamadı: ' + err.message));
-            };
-            videoEl.addEventListener('canplay', onCanPlay);
-            videoEl.addEventListener('error', onVideoError);
-
-            // Safety timeout for video readiness
-            setTimeout(() => {
-                if (phase === 'video' && !recordingStartTime) {
-                    onStartRecording(); // Try anyway
-                }
-            }, 3000);
-        }
+        drawFrame();
     });
 }
 
