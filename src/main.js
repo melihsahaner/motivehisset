@@ -48,6 +48,7 @@ let isRecording = false;
 let previewTimer = null;
 let outroTimer = null;
 let sceneStartTime = 0;
+let isJumpedPreview = false;
 
 let textSettings = {
   align: 'center',
@@ -155,6 +156,7 @@ async function handleGenerate() {
     
     renderSceneInputs();
     currentSceneIndex = 0;
+    isJumpedPreview = false;
     
     videoLoading.classList.add('hidden');
     isLoading = false;
@@ -217,6 +219,7 @@ async function handleManualGenerate() {
         
         renderSceneInputs();
         currentSceneIndex = 0;
+        isJumpedPreview = false;
         
         videoLoading.classList.add('hidden');
         isLoading = false;
@@ -332,16 +335,11 @@ function renderSceneInputs() {
                 scenes[idx].blobUrl = URL.createObjectURL(blob);
                 scenes[idx].videoUrl = videoData.url;
 
-                if (idx === currentSceneIndex && !isRecording) {
-                    videoPlayer.src = scenes[idx].blobUrl;
-                    videoPlayer.load();
-                    videoPlayer.play().catch(() => {});
-                    if (bgVideo) {
-                        bgVideo.src = scenes[idx].blobUrl;
-                        bgVideo.load();
-                        bgVideo.play().catch(() => {});
-                    }
-                }
+                // Sahneyi hemen göster ve bitince en baştan başlat
+                currentSceneIndex = idx;
+                isJumpedPreview = true;
+                stopPreviewLoop();
+                startPreviewLoop();
             } catch (err) {
                 showToast('Yeni video alınamadı.', 'error');
             } finally {
@@ -415,7 +413,12 @@ function checkTime() {
     
     // Geçiş süresi dolduysa veya video bittiyse bir sonraki sahneye geç
     if (elapsed >= SCENE_DURATION || videoPlayer.ended) {
-        currentSceneIndex++;
+        if (isJumpedPreview) {
+            isJumpedPreview = false;
+            currentSceneIndex = 0;
+        } else {
+            currentSceneIndex++;
+        }
         startPreviewLoop();
         return;
     }
