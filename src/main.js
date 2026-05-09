@@ -147,6 +147,7 @@ async function handleGenerate() {
         
         scenes.push({
             quote: quotes[i],
+            keyword: '',
             videoUrl: videoData.url,
             blobUrl: blobUrl
         });
@@ -208,6 +209,7 @@ async function handleManualGenerate() {
             
             scenes.push({
                 quote: quotes[i],
+                keyword: '',
                 videoUrl: videoData.url,
                 blobUrl: blobUrl
             });
@@ -251,6 +253,7 @@ function renderSceneInputs() {
                            
         const textarea = document.createElement('textarea');
         textarea.value = scene.quote;
+        textarea.placeholder = "Motivasyon sözü...";
         textarea.addEventListener('input', (e) => {
             scenes[index].quote = e.target.value;
             // Ekranda oynayan sahne buysa, metni anında güncelle
@@ -258,9 +261,25 @@ function renderSceneInputs() {
                 updateQuoteUI(scenes[index].quote);
             }
         });
+
+        const keywordInput = document.createElement('input');
+        keywordInput.type = 'text';
+        keywordInput.className = 'scene-keyword-input';
+        keywordInput.placeholder = 'Video ara (örn: kitap, deniz, orman)...';
+        keywordInput.value = scene.keyword || '';
+        keywordInput.addEventListener('input', (e) => {
+            scenes[index].keyword = e.target.value;
+        });
+        keywordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                item.querySelector('.btn-change-video').click();
+            }
+        });
         
         item.appendChild(header);
         item.appendChild(textarea);
+        item.appendChild(keywordInput);
         scenesContainer.appendChild(item);
     });
     
@@ -304,7 +323,8 @@ function renderSceneInputs() {
             setButtonsDisabled(true);
 
             try {
-                const videoData = await fetchRandomVideo();
+                const keyword = scenes[idx].keyword;
+                const videoData = await fetchRandomVideo(keyword);
                 const response = await fetch(videoData.url, { mode: 'cors' });
                 if (!response.ok) throw new Error('Video indirilemedi');
                 const blob = await response.blob();

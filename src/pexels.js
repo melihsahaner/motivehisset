@@ -45,14 +45,15 @@ function getRandomQuery() {
 
 /**
  * Fetch portrait/vertical videos from Pexels API
+ * @param {string} [customQuery] - Optional search query
  * @returns {Promise<{url: string, image: string, width: number, height: number}>}
  */
-export async function fetchRandomVideo() {
+export async function fetchRandomVideo(customQuery) {
     if (!apiKey) {
         throw new Error('API key not set');
     }
 
-    const query = getRandomQuery();
+    const query = customQuery || getRandomQuery();
     const page = Math.floor(Math.random() * 3) + 1; // Random page 1-3
 
     const response = await fetch(
@@ -74,6 +75,10 @@ export async function fetchRandomVideo() {
     const data = await response.json();
 
     if (!data.videos || data.videos.length === 0) {
+        // If custom query failed, try one more time with a random nature query as fallback
+        if (customQuery) {
+            return fetchRandomVideo();
+        }
         throw new Error('Video bulunamadı. Tekrar deneyin.');
     }
 
