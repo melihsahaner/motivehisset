@@ -54,10 +54,11 @@ loadLogo();
  * Record a video with text overlay and white outro
  * @param {Array} scenes - array of scenes { quote, videoUrl, blobUrl }
  * @param {object} textSettings - text settings object
+ * @param {number} sceneDuration - duration of each scene in seconds
  * @param {Function} onProgress - progress callback (0-1)
  * @returns {Promise<Blob>} - recorded MP4 video blob
  */
-export async function recordVideo(scenes, textSettings, onProgress) {
+export async function recordVideo(scenes, textSettings, sceneDuration, onProgress) {
     const canvas = document.getElementById('record-canvas');
     const ctx = canvas.getContext('2d');
 
@@ -88,21 +89,27 @@ export async function recordVideo(scenes, textSettings, onProgress) {
             v.muted = true;
             v.playsInline = true;
             v.src = scene.blobUrl;
+            v.preload = 'auto';
             v.load();
-            const onCanPlay = () => {
+            const onCanPlay = async () => {
                 v.removeEventListener('canplaythrough', onCanPlay);
+                try {
+                    // Videonun ilk karesini çözmesini zorlamak için kısa bir oynatma yapıyoruz
+                    await v.play();
+                    v.pause();
+                    v.currentTime = 0;
+                } catch(e) {}
                 resolve(v);
             };
             v.addEventListener('canplaythrough', onCanPlay);
             v.onerror = () => reject(new Error('Video yüklenemedi'));
             
             // Fallback timeout
-            setTimeout(() => resolve(v), 3000); 
+            setTimeout(() => resolve(v), 5000); 
         });
     }));
 
-    const SCENE_DURATION = 6;
-    const videoDuration = scenes.length * SCENE_DURATION;
+    const videoDuration = scenes.length * sceneDuration;
     const totalDuration = videoDuration + OUTRO_DURATION;
     
     onProgress(0.15, 'Kayıt başlıyor...');
@@ -110,9 +117,16 @@ export async function recordVideo(scenes, textSettings, onProgress) {
     return new Promise((resolve, reject) => {
         const stream = canvas.captureStream(FPS);
 
+        let mimeType = 'video/webm';
+        if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
+            mimeType = 'video/webm;codecs=h264';
+        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
+            mimeType = 'video/webm;codecs=vp8';
+        }
+        
         const recorder = new MediaRecorder(stream, {
-            mimeType: 'video/webm;codecs=vp9',
-            videoBitsPerSecond: 8000000
+            mimeType: mimeType,
+            videoBitsPerSecond: 5000000 // Reduced slightly for better real-time performance
         });
 
         const chunks = [];
@@ -159,7 +173,7 @@ export async function recordVideo(scenes, textSettings, onProgress) {
             reject(new Error('Kayıt hatası: ' + (e.error || e.message || 'unknown')));
         };
 
-        recorder.start(100);
+        recorder.start();
 
         let recordingStartTime = performance.now();
         let currentSceneIndex = -1;
@@ -173,7 +187,7 @@ export async function recordVideo(scenes, textSettings, onProgress) {
 
             if (elapsed < videoDuration) {
                 // Video phase
-                const sceneIndex = Math.floor(elapsed / SCENE_DURATION);
+                const sceneIndex = Math.floor(elapsed / sceneDuration);
                 
                 // Transition to new scene
                 if (sceneIndex !== currentSceneIndex) {
@@ -197,7 +211,7 @@ export async function recordVideo(scenes, textSettings, onProgress) {
                 ctx.fillStyle = vignette;
                 ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-                const sceneElapsed = elapsed % SCENE_DURATION;
+                const sceneElapsed = elapsed % sceneDuration;
                 
                 // Combine text and textSettings
                 const quotePayload = {
@@ -207,7 +221,7 @@ export async function recordVideo(scenes, textSettings, onProgress) {
                     lineHeight: textSettings.lineHeight
                 };
 
-                drawQuoteText(ctx, quotePayload, CANVAS_WIDTH, CANVAS_HEIGHT, sceneElapsed);
+                drawQuoteText(ctx, quotePayload, CANVAS_WIDTH, CANVAS_HEIGHT, sceneElapsed, sceneDuration);
                 drawBranding(ctx, CANVAS_WIDTH, CANVAS_HEIGHT);
 
                 onProgress(Math.min(elapsed / totalDuration, 0.7));
@@ -282,7 +296,7 @@ function drawVideoCover(ctx, video, canvasW, canvasH) {
 /**
  * Draw motivational quote text centered on canvas with cinematic intro animation
  */
-function drawQuoteText(ctx, textPayload, canvasW, canvasH, elapsed) {
+function drawQuoteText(ctx, textPayload, canvasW, canvasH, elapsed, sceneDuration = 6) {
     const {
         text,
         align = 'center',
@@ -297,32 +311,17 @@ function drawQuoteText(ctx, textPayload, canvasW, canvasH, elapsed) {
     const lineHeight = fontSize * parseFloat(uiLineHeight);
     const maxWidth = canvasW * 0.85;
 
-    // Cinematic Animation (1.5s duration)
-    const animDuration = 1.5;
+    // Fade in / Fade out logic
+    const fadeDuration = 1.0; // 1 saniye fade in, 1 saniye fade out
     let opacity = 1;
-    let blur = 0;
-    let scale = 1;
 
-    if (elapsed < animDuration) {
-        const progress = elapsed / animDuration;
-        const ease = 1 - Math.pow(1 - progress, 3);
-        opacity = ease;
-        blur = 15 * (1 - ease);
-        scale = 1.05 - (0.05 * ease);
+    if (elapsed < fadeDuration) {
+        opacity = elapsed / fadeDuration;
+    } else if (elapsed > sceneDuration - fadeDuration) {
+        opacity = Math.max(0, (sceneDuration - elapsed) / fadeDuration);
     }
 
     ctx.save();
-
-    if (blur > 0 && typeof ctx.filter !== 'undefined') {
-        ctx.filter = `blur(${blur}px)`;
-    }
-
-    if (scale !== 1) {
-        ctx.translate(canvasW / 2, canvasH / 2);
-        ctx.scale(scale, scale);
-        ctx.translate(-canvasW / 2, -canvasH / 2);
-    }
-
     ctx.globalAlpha = opacity;
     ctx.font = `italic 500 ${fontSize}px "Cormorant Garamond", serif`;
     ctx.fillStyle = '#FFFFFF';
@@ -335,7 +334,7 @@ function drawQuoteText(ctx, textPayload, canvasW, canvasH, elapsed) {
     const startY = (canvasH - totalHeight) / 2 + lineHeight / 2;
 
     // Premium text shadow
-    ctx.shadowColor = `rgba(0, 0, 0, ${0.7 * opacity})`;
+    ctx.shadowColor = `rgba(0, 0, 0, 0.7)`;
     ctx.shadowBlur = 30;
     ctx.shadowOffsetY = 4;
     ctx.shadowOffsetX = 0;

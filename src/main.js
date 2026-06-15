@@ -35,9 +35,11 @@ const rangeFontSize = document.getElementById('range-font-size');
 const valFontSize = document.getElementById('val-font-size');
 const rangeLineHeight = document.getElementById('range-line-height');
 const valLineHeight = document.getElementById('val-line-height');
+const rangeSceneDuration = document.getElementById('range-scene-duration');
+const valSceneDuration = document.getElementById('val-scene-duration');
 
 // Constants
-const SCENE_DURATION = 6; // Her sahne için saniye
+let SCENE_DURATION = 6; // Her sahne için saniye
 const OUTRO_DURATION = 3; // saniye
 
 // State
@@ -250,6 +252,7 @@ function renderSceneInputs() {
             <div class="scene-actions">
                 <button class="btn-action-small btn-change-quote" title="Yeni Söz" data-index="${index}">✏️</button>
                 <button class="btn-action-small btn-change-video" title="Yeni Video" data-index="${index}">🎬</button>
+                <button class="btn-action-small btn-upload-video" title="Kendi Videonu Yükle" data-index="${index}">📁</button>
                 <button class="btn-action-small btn-copy" title="Kopyala" data-index="${index}">📋</button>
             </div>
         `;
@@ -311,6 +314,37 @@ function renderSceneInputs() {
             if (idx === currentSceneIndex && !isRecording && !quoteOverlay.classList.contains('hidden')) {
                 updateQuoteUI(newQuote);
             }
+        });
+    });
+
+    document.querySelectorAll('.btn-upload-video').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (isLoading) return;
+            const idx = parseInt(e.currentTarget.getAttribute('data-index'), 10);
+            
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = 'video/*';
+            fileInput.onchange = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                // Eski blob URL'sini temizle (isteğe bağlı, bellek sızıntısını önlemek için ama aynı dosyalar için sorun olabilir)
+                // if (scenes[idx].blobUrl && scenes[idx].blobUrl.startsWith('blob:')) {
+                //     URL.revokeObjectURL(scenes[idx].blobUrl);
+                // }
+                
+                const blobUrl = URL.createObjectURL(file);
+                scenes[idx].blobUrl = blobUrl;
+                scenes[idx].videoUrl = file.name;
+                
+                currentSceneIndex = idx;
+                isJumpedPreview = true;
+                stopPreviewLoop();
+                startPreviewLoop();
+            };
+            fileInput.click();
         });
     });
 
@@ -469,7 +503,7 @@ function updateQuoteUI(text) {
   // Animasyonu sıfırla
   quoteText.style.animation = 'none';
   quoteText.offsetHeight; 
-  quoteText.style.animation = '';
+  quoteText.style.animation = `textFadeInOut ${SCENE_DURATION}s linear forwards`;
 }
 
 // ========================================
@@ -504,6 +538,11 @@ rangeLineHeight.addEventListener('input', (e) => {
   }
 });
 
+rangeSceneDuration.addEventListener('input', (e) => {
+  SCENE_DURATION = parseInt(e.target.value, 10);
+  valSceneDuration.textContent = SCENE_DURATION + ' sn';
+});
+
 // ========================================
 // Video Recording & Download
 // ========================================
@@ -522,7 +561,7 @@ btnDownload.addEventListener('click', async () => {
   btnDownload.disabled = true;
 
   try {
-    const blob = await recordVideo(scenes, textSettings, (progress, statusMsg) => {
+    const blob = await recordVideo(scenes, textSettings, SCENE_DURATION, (progress, statusMsg) => {
       const pct = Math.round(progress * 100);
       progressFill.style.width = pct + '%';
       if (statusMsg) {
