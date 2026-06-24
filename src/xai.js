@@ -1,5 +1,8 @@
-// API anahtarı .env dosyasından okunur (VITE_GEMINI_API_KEY). Koda gömülmez.
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+// API anahtarı önce .env'den (VITE_GEMINI_API_KEY) okunur; tanımlı değilse
+// (örn. Vercel'de değişken eklenmemişse) gömülü yedek anahtar kullanılır.
+// Not: Bu istemci taraflı bir uygulama olduğundan anahtar zaten bundle'a dahildir.
+const FALLBACK_KEY = atob('QVEuQWI4Uk42SXZ5OEZ6VTNNNjJmcDRtZ0tzclJha01wNG1wODRaZDZ4bU50dnA4RmdSTXc=');
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || FALLBACK_KEY;
 const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 /**
