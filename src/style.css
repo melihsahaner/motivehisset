@@ -849,6 +849,64 @@ main {
   background: rgba(255, 255, 255, 0.08);
 }
 
+/* Instagram Caption Panel */
+.caption-panel {
+  margin-top: 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+}
+.caption-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.caption-header label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.btn-copy-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(102, 126, 234, 0.2);
+  border: 1px solid rgba(102, 126, 234, 0.45);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.btn-copy-caption:hover {
+  background: rgba(102, 126, 234, 0.35);
+}
+.btn-copy-caption:active {
+  transform: scale(0.97);
+}
+.caption-text {
+  width: 100%;
+  min-height: 110px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+.caption-text:focus {
+  border-color: rgba(102, 126, 234, 0.5);
+}
+
 /* Toast */
 .toast {
   position: fixed;

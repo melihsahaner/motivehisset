@@ -88,6 +88,7 @@ export async function recordVideo(scenes, textSettings, sceneDuration, onProgres
             v.crossOrigin = 'anonymous';
             v.muted = true;
             v.playsInline = true;
+            v.loop = true; // Sahne süresi videodan uzunsa son karede donmasın diye döngüye al
             v.src = scene.blobUrl;
             v.preload = 'auto';
             v.load();

@@ -22,7 +22,12 @@ const btnManual = document.getElementById('btn-manual');
 const scenesContainer = document.getElementById('scenes-container');
 
 const btnDownload = document.getElementById('btn-download');
+const captionText = document.getElementById('caption-text');
+const btnCopyCaption = document.getElementById('btn-copy-caption');
 const downloadProgress = document.getElementById('download-progress');
+
+// Instagram açıklamasının altına eklenecek sabit etiketler
+const CAPTION_HASHTAGS = '#motivehisset #kisiselgelisim';
 const progressFill = document.getElementById('progress-fill');
 const progressText = document.getElementById('progress-text');
 const bgVideo = document.getElementById('bg-video');
@@ -157,9 +162,10 @@ async function handleGenerate() {
     }
     
     renderSceneInputs();
+    updateCaption();
     currentSceneIndex = 0;
     isJumpedPreview = false;
-    
+
     videoLoading.classList.add('hidden');
     isLoading = false;
     setButtonsDisabled(false);
@@ -220,6 +226,7 @@ async function handleManualGenerate() {
         }
         
         renderSceneInputs();
+        updateCaption();
         currentSceneIndex = 0;
         isJumpedPreview = false;
         
@@ -262,6 +269,7 @@ function renderSceneInputs() {
         textarea.placeholder = "Motivasyon sözü...";
         textarea.addEventListener('input', (e) => {
             scenes[index].quote = e.target.value;
+            updateCaption();
             // Ekranda oynayan sahne buysa, metni anında güncelle
             if (index === currentSceneIndex && !isRecording && !quoteOverlay.classList.contains('hidden')) {
                 updateQuoteUI(scenes[index].quote);
@@ -306,7 +314,8 @@ function renderSceneInputs() {
             const idx = parseInt(e.currentTarget.getAttribute('data-index'), 10);
             const newQuote = getRandomQuote();
             scenes[idx].quote = newQuote;
-            
+            updateCaption();
+
             // Update textarea
             const parentItem = e.currentTarget.closest('.scene-item');
             parentItem.querySelector('textarea').value = newQuote;
@@ -412,12 +421,13 @@ function startPreviewLoop() {
   
   const playScene = () => {
       videoPlayer.currentTime = 0;
-      videoPlayer.loop = false;
+      videoPlayer.loop = true; // Video sahne süresinden kısaysa donmasın, başa sarsın
       videoPlayer.muted = true;
       videoPlayer.play().catch(() => {});
       
       if (bgVideo) {
           if (bgVideo.src !== scene.blobUrl) bgVideo.src = scene.blobUrl;
+          bgVideo.loop = true;
           bgVideo.currentTime = 0;
           bgVideo.play().catch(() => {});
       }
@@ -504,6 +514,46 @@ function updateQuoteUI(text) {
   quoteText.style.animation = 'none';
   quoteText.offsetHeight; 
   quoteText.style.animation = `textFadeInOut ${SCENE_DURATION}s linear forwards`;
+}
+
+// ========================================
+// Instagram Caption
+// ========================================
+function updateCaption() {
+  if (!captionText) return;
+  const fullText = scenes
+    .map(s => (s.quote || '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!fullText) {
+    captionText.value = '';
+    return;
+  }
+
+  captionText.value = `${fullText}\n\n${CAPTION_HASHTAGS}`;
+}
+
+if (btnCopyCaption) {
+  btnCopyCaption.addEventListener('click', async () => {
+    if (!captionText.value.trim()) {
+      showToast('Önce bir video oluşturun.', 'error');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(captionText.value);
+      showToast('Açıklama kopyalandı! Instagram\'a yapıştırabilirsiniz.', 'success');
+    } catch (err) {
+      // Pano API başarısızsa eski yöntemle dene
+      captionText.removeAttribute('readonly');
+      captionText.select();
+      document.execCommand('copy');
+      captionText.setAttribute('readonly', '');
+      showToast('Açıklama kopyalandı!', 'success');
+    }
+  });
 }
 
 // ========================================
